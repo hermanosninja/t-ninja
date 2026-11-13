@@ -1,1 +1,1 @@
-{"v": 446, "sha256": "d7e15630211393edc442e5e9e71141a95bff8574175dc63264a07f764c3bf5dc", "notes": "Al abrir se preparan también las sub-pestañas (Preflop, Reload IP, Por grupos, Varianza…): tocar cualquiera es instantáneo.", "shell": 1}
+{"v": 447, "sha256": "07333e2326d4e44026238aa26ede0c849223b54fa572eb6ab475fdd27eb5ca79", "notes": "Las actualizaciones ya no vuelven a preparar análisis que no cambiaron.", "shell": 1}
