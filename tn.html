@@ -4144,7 +4144,8 @@ if (typeof module !== "undefined") module.exports = PFRanges;
    Con quién se sienta: cuántos fish hay en sus mesas, qué tan fish son (VPIP), cuántos regulares,
    y si se va de la mesa cuando se va el fish. Usa el VPIP de cada rival en toda la base. */
 var Bumhunt = (function () {
-  function analyze(db, player, stats) { // stats(name) -> {n, vpip, pfr} o null
+  function analyze(db, player, stats, rt) { // rt: tipo de cada rival (rec, int, reg, unk) según la configuración del programa
+    var TY = ["rec", "int", "unk", "reg"], PR = {}; TY.forEach(function (k) { PR[k] = { w: 0, cnt: 0, netW: 0, netO: 0 }; }); // stats(name) -> {n, vpip, pfr} o null
     var H = [], byTable = {};
     for (var i = 0; i < db.hands.length; i++) {
       var h = db.hands[i], P = h.idx[player]; if (P == null) continue;
@@ -4152,9 +4153,11 @@ var Bumhunt = (function () {
       opp.forEach(function (p) { var s = stats(p.name); if (!s || s.n < 50) return; known.push(s.vpip); var isFish = s.vpip >= 40 || s.vpip - s.pfr >= 20, isReg = s.vpip <= 30 && s.vpip - s.pfr <= 10 && s.pfr >= 12;
         if (isFish) fish++; if (isReg) regs++; if (maxV === null || s.vpip > maxV) maxV = s.vpip; });
       var rec = { hi: i, n: h.players.length, opp: opp.length, known: known.length, avgV: known.length ? known.reduce(function (a, b) { return a + b; }, 0) / known.length : null, fish: fish, regs: regs, maxV: maxV, t: h.timeKey, table: h.table, bb: h.bb, net: h.players[P].net / h.bb };
+      if (rt) { var has = {}; opp.forEach(function (p) { var ty = rt[p.name] || "unk"; if (PR[ty]) { has[ty] = (has[ty] || 0) + 1; } }); TY.forEach(function (k) { var x = PR[k]; if (has[k]) { x.w++; x.cnt += has[k]; x.netW += rec.net; } else x.netO += rec.net; }); }
       H.push(rec); (byTable[h.table] = byTable[h.table] || []).push(rec);
     }
     var out = { n: H.length };
+    if (rt) out.rtPres = TY.map(function (k) { var x = PR[k], nO = H.length - x.w; return { k: k, pct: H.length ? Math.round(1000 * x.w / H.length) / 10 : 0, avg: H.length ? Math.round(100 * x.cnt / H.length) / 100 : 0, bbW: x.w >= 200 ? Math.round(10 * 100 * x.netW / x.w) / 10 : null, bbO: nO >= 200 ? Math.round(10 * 100 * x.netO / nO) / 10 : null, nW: x.w, nO: nO }; });
     if (H.length < 100) { out.text = ["Muestra insuficiente: " + H.length + " manos."]; return out; }
     var K = H.filter(function (r) { return r.known; }), pct = function (L, f) { return L.length ? Math.round(1000 * L.filter(f).length / L.length) / 10 : 0; }, avg = function (L, f) { var a = L.map(f).filter(function (v) { return v != null; }); return a.length ? Math.round(10 * a.reduce(function (x, y) { return x + y; }, 0) / a.length) / 10 : null; };
     out.withFish = pct(H, function (r) { return r.fish > 0; });
@@ -4776,7 +4779,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       await importFiles(files, {reproc:true, last: i + CH >= keys.length, prog:"Volviendo a leer los historiales guardados: "+fmtN(Math.min(keys.length, i + CH))+" de "+fmtN(keys.length)+" archivos"}); }
     meta.parseV = PARSE_VER; try { await saveSummary(); } catch(e){} var b = $("reprocBar"); if (b) b.hidden = true; }
   async function reprocCheck(){ var b = $("reprocBar"); if (!b) return; var n = meta.parseV && meta.parseV !== PARSE_VER ? await rawCount() : 0; b.hidden = !n; if (n){ b.textContent = "Hay una lectura de historiales mejorada: actualizar mis manos ("+fmtN(n)+" archivos guardados)"; b.onclick = function(){ if (confirm("Se vuelven a leer todas tus manos desde los historiales guardados, con la lectura nueva. Puede tardar varios minutos. ¿Seguimos?")) reprocessAll(); }; } }
-  var cdb = null, SNAP_VER = "00fc6a857b", RES_VER = "df8140d159"; var RES_VERS = {"reports": "a45f4760b6", "strat": "25d4866012", "sheets": "92bbf69020", "ded": "1110a3328b", "lnRes": "32022eba5d", "bbbRes": "7b0cb8d089", "cbfRes": "cd371d624c", "ndRes": "c51407e11d", "ndRes3": "c51407e11d", "sumRes": "9fcd85614f", "digRes": "2b68448454", "pfrRes": "96c948a662", "bhRes": "405aa3df33", "lsRes": "a1ef035860", "lsResF": "a1ef035860", "pfRes": "69c9ac44f7", "pfResF": "be53e052bd", "aggMemo": "50db848826", "respMemo": "d22b18fcf8", "scRes": "b5e888a1cb", "cache": "eeacbf8c06"}; function resVer(o){ return RES_VERS[o] || RES_VER; }
+  var cdb = null, SNAP_VER = "00fc6a857b", RES_VER = "1c25bbd66c"; var RES_VERS = {"reports": "a45f4760b6", "strat": "25d4866012", "sheets": "92bbf69020", "ded": "1110a3328b", "lnRes": "32022eba5d", "bbbRes": "7b0cb8d089", "cbfRes": "cd371d624c", "ndRes": "c51407e11d", "ndRes3": "c51407e11d", "sumRes": "9fcd85614f", "digRes": "2b68448454", "pfrRes": "96c948a662", "bhRes": "858c0e97c7", "lsRes": "a1ef035860", "lsResF": "a1ef035860", "pfRes": "69c9ac44f7", "pfResF": "be53e052bd", "aggMemo": "50db848826", "respMemo": "d22b18fcf8", "scRes": "b5e888a1cb", "cache": "eeacbf8c06"}; function resVer(o){ return RES_VERS[o] || RES_VER; }
   async function openCache(){ try{ var r = indexedDB.open("tracker-cache" + DBSFX, 1); r.onupgradeneeded = function(){ r.result.createObjectStore("kv"); }; cdb = await req(r); }catch(e){ cdb = null; } }
   function rtTagNow(){ return (typeof Analysis !== "undefined" ? JSON.stringify(Analysis.RTC) : "") + "#" + (meta && meta.hands ? Math.floor(Math.log(meta.hands) / Math.log(1.1)) : 0); }
   function snapSig(name){ return dataSig(name).split("|").slice(0, -1).join("|"); } // la foto de las manos no depende de los tipos de rival
@@ -4856,6 +4859,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
         ["Gráficos", function(){ db.evCurve(player, {}); }, function(){ return !!db._ev; }],
     ["Estadísticas por línea", function(){ if (!lsRes[player]) lsRes[player] = keepRes("lsRes", player, LineStats.build(db, player)); if (!pfRes[player]) pfRes[player] = keepRes("pfRes", player, pfAccum(db.hands, player, {})); }, function(){ return !!lsRes[player] && !!pfRes[player]; }],
     ["Con qué pagar", function(){ ["srp","3bp"].forEach(function(pt){ Object.keys(BBB.LINES).forEach(function(ln){ pgLine(ln, pt); }); }); }, function(){ return ["srp","3bp"].every(function(pt){ return Object.keys(BBB.LINES).every(function(ln){ return !!PG_L[player+"|"+ln+"|"+pt]; }); }); }],
+    ["Varianza", function(){ var f0 = filt; filt = {}; try { varCalc(); } finally { filt = f0; } }, function(){ var f0 = filt; filt = {}; try { var ok0 = cache["own"+player]; if (ok0 == null) return false; return !!cache["var"+(ok0 || varAll ? "all" : "ai")+"{}"+player]; } finally { filt = f0; } }],
     ["Reportes", function(){ var f0 = filt; filt = {}; try { repCalc(); } finally { filt = f0; } }, function(){ return !!cache["rep"+repBy+"{}"+player+(CFG.mesCols||["vpip","pfr","3b"]).join()]; }],
     ["Estrategias", function(){ jgBuild(player); }, function(){ return !!jgIdxC[player + "|" + db.hands.length]; }],
     ["Rival y Estadísticas", function(){ var f0 = filt; filt = {}; try { vResumen(); vStats(); vSit(); } finally { filt = f0; } }, function(){ return !!aggMemo[player+"|{}"] && !!aggMemo[player+"|"+JSON.stringify({positions:["BB"]})]; }],
@@ -4863,7 +4867,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     ["Análisis c-bet flop", function(){ ["ip","oop"].forEach(function(p){ var k = player+"|"+p; if (!cbfRes[k]) cbfRes[k] = keepRes("cbfRes", k, CBFlop.analyze(db, player, p)); var c = player+"|cont|"+p; if (!cbfRes[c]) cbfRes[c] = keepRes("cbfRes", c, CBFlop.cont(db, player, p)); }); }, function(){ return !!(cbfRes[player+"|ip"] && cbfRes[player+"|oop"] && cbfRes[player+"|cont|ip"] && cbfRes[player+"|cont|oop"]); }],
     ["Tells de la apuesta", function(){ digRes[player] = keepRes("digRes", player, Digits.analyze(db, player)); }, function(){ return !!digRes[player]; }],
     ["Rangos preflop", function(){ pfrRes[player] = keepRes("pfrRes", player, PFRanges.build(db, player, window.FN_RANGES, db.rt || null)); }, function(){ return !!pfrRes[player]; }],
-    ["Selección de mesas", function(){ bhRes[player] = keepRes("bhRes", player, Bumhunt.analyze(db, player, bhStats)); }, function(){ return !!bhRes[player]; }],
+    ["Selección de mesas", function(){ bhRes[player] = keepRes("bhRes", player, Bumhunt.analyze(db, player, bhStats, db.rt || Analysis.rivalTypes({summary:summary}))); }, function(){ return !!(bhRes[player] && bhRes[player].rtPres); }],
     ["Deducción (situaciones)", function(){ var k = player+"|srp"; ded[k] = keepRes("ded", k, Deduce.build(db, player, {pot:"srp"})); }, function(){ return !!ded[player+"|srp"]; }],
   ];
   var prepping = false;
@@ -6210,8 +6214,13 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   function bhCmpLoad(){ try { return JSON.parse(localStorage.getItem("bh_cmp")||"{}"); } catch(e){ return {}; } }
   function bhCmpSave(o){ try { localStorage.setItem("bh_cmp", JSON.stringify(o)); } catch(e){} }
   function vBh(nav){
-    if (!bhRes[player]) bhRes[player] = keepRes("bhRes", player, Bumhunt.analyze(db, player, bhStats));
+    if (!bhRes[player] || !bhRes[player].rtPres) bhRes[player] = keepRes("bhRes", player, Bumhunt.analyze(db, player, bhStats, db.rt || Analysis.rivalTypes({summary:summary})));
     var R = bhRes[player], b = '';
+    // con quién se sienta: en qué % de sus manos hay al menos un recreacional, intermedio, desconocido o regular en la mesa
+    if (R.rtPres){ var RTL = {rec:"Recreacional", int:"Intermedio", unk:"Desconocido", reg:"Regular"}, bbc = function(v){ return v == null ? '<span class="small">—</span>' : '<span class="'+cls(v)+'">'+f1(v, 1)+'</span>'; };
+      b += '<div style="display:inline-block;margin-bottom:14px"><h4 style="margin:0 0 4px">Con quién se sienta</h4><table style="width:auto;min-width:560px"><thead><tr><th style="text-align:left">Al menos uno en la mesa</th><th>% de sus manos</th><th>Promedio por mano</th><th>bb/100 con</th><th>bb/100 sin</th></tr></thead><tbody>'
+        + R.rtPres.map(function(x){ return '<tr><td style="text-align:left">'+RTL[x.k]+'</td><td><b style="font-size:15px">'+f1(x.pct, 1)+'%</b></td><td>'+f1(x.avg, 2)+'</td><td>'+bbc(x.bbW)+'</td><td>'+bbc(x.bbO)+'</td></tr>'; }).join("")
+        + '</tbody></table><div class="small" style="margin-top:4px">El tipo de cada rival es el mismo que se ve en Jugadores. Con menos de 200 manos el bb/100 no se muestra (—).</div></div>'; }
     var cmp = bhCmpLoad(); if (R.index != null){ cmp[player] = { idx: R.index, wf: R.withFish, big: R.avgBigFish, reg: R.regShare, hard: R.hardTables, lq: R.leftQuick, n: R.n, bb: summary[player] ? Math.round(10*100*summary[player].bb/Math.max(1,summary[player].n))/10 : null }; bhCmpSave(cmp); }
     b += '<div class="sh-note" style="border-left:5px solid var(--accent);margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><b style="font-size:16px">Selección de mesas (bumhunting)</b>'+(R.index!=null?'<span style="font-size:28px;font-weight:700">'+R.index+'<span class="small"> / 100</span></span>':'')+'</div><ul style="margin:6px 0 0;padding-left:18px;font-size:14px">'+R.text.map(function(x){ return '<li style="margin-bottom:3px">'+esc(x)+'</li>'; }).join("")+'</ul>'
       + '<p class="small" style="margin:6px 0 0">Índice de 0 a 100: 45% sale de cuántas manos juega con un fish en la mesa, 25% del VPIP promedio de sus rivales, 30% de qué tan rápido se va cuando se va el fish; resta un poco por las mesas duras. Más alto = elige más las mesas. El tipo de cada rival sale de su VPIP y PFR en toda la base.</p></div>';
@@ -7138,18 +7147,23 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   var bqHand = "", bqMin = "", bqOnly = {}, bqSort = "hora", bqDir = -1;
   function bqMatchHand(hole, q){ if (!q) return true; if (!hole) return false; var c = qfCls(hole), Q = q.toUpperCase().replace(/\s+/g, "").split(",").filter(Boolean);
     return Q.some(function(t){ t = t.replace(/S$/, "s").replace(/O$/, "o"); if (t.length === 2) return c.slice(0, 2) === t || c.slice(0, 2) === t[1]+t[0]; return c === t || c === t[1]+t[0]+t[2]; }); }
+  var BQC = null;
   function vBuscar(){
     var M = CFG.marked || {}, mn = +bqMin || 0, L = [];
-    var faB = FA(), nH = db.hands.length;
+    var faB = FA(), nH = db.hands.length, bqK = [player, nH, JSON.stringify(filt), bqHand, bqMin, JSON.stringify(bqOnly), bqSort, bqDir, bqOnly.mk ? JSON.stringify(M).length : 0].join("|"), BQ = BQC && BQC.k === bqK ? BQC : null; // la lista ordenada queda guardada: volver a Manos no la arma de nuevo
+    if (BQ) L = BQ.L; else
     for (var i0 = 0; i0 < nH; i0++) (function(i){ if (faB && !faB(i)) return; if (faB && !bqHand && !bqMin && !bqOnly.mk && !bqOnly.sd && !bqOnly.ai && !bqOnly.won && !bqOnly.lost){ L.push(i); return; }
       if (faB && (bqOnly.won || bqOnly.lost) && !bqHand && !bqMin && !bqOnly.mk && !bqOnly.sd && !bqOnly.ai){ var nt = db.F.net[i]; if ((bqOnly.won && !(nt > 0)) || (bqOnly.lost && !(nt < 0))) return; L.push(i); return; }
       var h = db.hands[i], P = h.idx[player]; if (P == null) return; var me = h.players[P]; if (!faB && !acceptF(filt, h, db.facts[i][P])) return;
       if (bqOnly.mk && !M[h.id]) return; if (bqOnly.sd && !(h.showdown && !me.folded)) return; if (bqOnly.ai && !h.actions.some(function(a){ return a.player === P && a.allin; })) return;
       if (bqOnly.won && !(me.net > 0)) return; if (bqOnly.lost && !(me.net < 0)) return; if (mn && h.pot / h.bb < mn) return; if (!bqMatchHand(me.hole, bqHand)) return; L.push(i); })(i0);
     var HC = [["mk","", function(h){ return M[h.id] ? 1 : 0; }, function(h){ return '<button type="button" class="bq-star'+(M[h.id]?' on':'')+'" data-bqmk="'+esc(h.id)+'" aria-label="Marcar">'+(M[h.id]?'★':'☆')+'</button>'; }]].concat([["fecha","Fecha", function(h){ return h.timeKey; }, function(h){ return dstr(h.timeKey, true); }, 1]], hcols().filter(function(c){ return c[0] !== "hora"; }));
-    var sc = HC.filter(function(c){ return c[0] === bqSort; })[0] || HC[1], hs = (sc[0] === "fecha" || sc[0] === "hora") && isFast() ? L.map(function(i){ return {i:i, v:db.store.tk[db.store.order ? db.store.order[i] : i]}; }) : sc[0] === "net" && isFast() ? L.map(function(i){ return {i:i, v:db.F.net[i]}; }) : L.map(function(i){ var h = db.hands[i], p = h.idx[player]; return {i:i, v:sc[2](h, p, h.players[p])}; });
+    var sc = HC.filter(function(c){ return c[0] === bqSort; })[0] || HC[1], hs = BQ ? null : (sc[0] === "fecha" || sc[0] === "hora") && isFast() ? L.map(function(i){ return {i:i, v:db.store.tk[db.store.order ? db.store.order[i] : i]}; }) : sc[0] === "net" && isFast() ? L.map(function(i){ return {i:i, v:db.F.net[i]}; }) : L.map(function(i){ var h = db.hands[i], p = h.idx[player]; return {i:i, v:sc[2](h, p, h.players[p])}; });
+    var net = 0, bbs = 0;
+    if (BQ){ hs = BQ.hs; net = BQ.net; bbs = BQ.bbs; } else {
     hs.sort(function(x, y){ var a1 = x.v, b1 = y.v; return bqDir*(typeof a1 === "string" ? (a1 < b1 ? -1 : a1 > b1 ? 1 : 0) : a1 - b1); });
-    var net = 0, bbs = 0; if (isFast()) L.forEach(function(i){ net += db.F.net[i]; bbs += db.F.net[i] / db.F.bbv[i]; }); else L.forEach(function(i){ var h = db.hands[i], me = h.players[h.idx[player]]; net += me.net; bbs += me.net / h.bb; });
+    if (isFast()) L.forEach(function(i){ net += db.F.net[i]; bbs += db.F.net[i] / db.F.bbv[i]; }); else L.forEach(function(i){ var h = db.hands[i], me = h.players[h.idx[player]]; net += me.net; bbs += me.net / h.bb; });
+    BQC = {k:bqK, L:L, hs:hs, net:net, bbs:bbs}; }
     var chk = function(k, l){ return '<label class="qf-chip'+(bqOnly[k]?' on':'')+'"><input type="checkbox" data-bqo="'+k+'"'+(bqOnly[k]?' checked':'')+'> '+l+'</label>'; };
     var tools = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line)"><input class="cfin" id="bqHand" placeholder="Mano (ej.: AK, QQ, AKs)" value="'+esc(bqHand)+'" style="width:190px"><input class="cfin" id="bqMin" type="number" min="0" placeholder="Bote mín. (bb)" value="'+esc(bqMin)+'" style="width:130px">'
       + chk("mk","★ Marcadas") + chk("ai","All-in") + chk("sd","Showdown") + chk("won","Ganadas") + chk("lost","Perdidas") + '<span style="flex:1"></span><button class="btn" id="hColBtn">+ Columnas</button></div>';
@@ -11136,7 +11150,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   var _rpc = 0; function limBadgeUpd(){ if (!_rpc && meta && meta.hands){ _rpc = 1; reprocCheck(); } var b = $("limBadge"); if (!b) return; var on = CFG.lim > 0 && db && db.hands && summary[player] && summary[player].n > db.hands.length; b.hidden = !on; if (on) b.textContent = "Modo prueba: "+fmtN(db.hands.length)+" de "+fmtN(summary[player].n)+" manos"; b.onclick = function(){ cfgSub = "base"; if (typeof cfgTab !== "undefined") cfgTab = "gen"; var r = document.querySelector('#rail button[data-v="config"]'); if (r) r.click(); }; }
   function renderMain(){ try { limBadgeUpd(); } catch(e){} if (!selLoaded){ selLoaded = true; try { selLoad(); } catch(e){} } try { selSave(); } catch(e){}
     setTimeout(function(){ prepBtnUpdate(); if (db && db._ev && !db._evSaved && db.hands.length > 20000 && player){ db._evSaved = true; saveEv(player, db); } }, 0);
-    var m = $("main"); if (m._view !== view) vStash(m); else m._vkey = null;
+    var m = $("main"), nk = vKey(view), swap = !!m._vkey && m._vkey !== nk; if (swap) vStash(m); else m._vkey = null;
     var SETV = {crearstats:1, crearhud:1, crearpop:1, config:1}, isSet = !!SETV[view];
     if (IDB_ERR && !isSet){ m.innerHTML = '<div class="empty"><h2>No se pudo abrir la base de datos</h2><p>Tus manos no se borraron. Cerrá el programa y volvé a abrirlo. Si sigue igual, reiniciá la computadora.</p><p class="small">Detalle: '+esc(IDB_ERR)+'</p></div>'; return; }
     if (!meta.hands && !isSet){ m.innerHTML = '<div class="empty"><h2>Importá tus historiales de manos</h2><p>Arrastrá a esta ventana archivos .txt, .zip o .rar de 888poker, PokerStars, partypoker, Winamax, iPoker, red Chico, Winning Poker Network, Run It Once, CoinPoker o PokerBros, de cualquier jugador (vos o un rival), o tocá "Importar manos" arriba a la derecha. Las manos de torneo se descartan solas. Se procesan en tu navegador y quedan guardadas acá; no se suben a ningún lado.</p><button class="btn acc" id="impBtn2">Importar manos</button></div>'; $("impBtn2").onclick = function(){ $("file").click(); }; return; }
@@ -11146,7 +11160,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       $("heroOk").onclick = function(){ var v = $("heroIn").value.trim(); if (!summary[v] && summary[ALIAS_PFX + v.replace(/^★\s*/, "")]) v = ALIAS_PFX + v.replace(/^★\s*/, ""); if (!summary[v]){ $("heroMsg").textContent = "Ese nombre no está en la base."; return; } CFG.hero = v; saveCfg(); setPlayer(v); }; return; }
     if (!player && !isSet){ m.innerHTML = '<div class="empty"><p>Elegí un jugador arriba.</p></div>'; return; }
     // conservar el scroll de la lista de la izquierda (y de las listas) al volver a dibujar la misma pestaña
-    if (m._view !== view && vRestore(m)) return;
+    if ((swap || m._view !== view) && vRestore(m, nk)) return;
     var keep = []; if (m._view === view) m.querySelectorAll(".bd, .sh-wrap, [data-ks]").forEach(function(el, i){ if (el.scrollTop || el.scrollLeft) keep.push([i, el.scrollTop, el.scrollLeft]); });
     var V = VIEWS[view] || VIEWS.resumen;
     if (studyPf && STUDY_V[view] && view !== "linestatsM" && view !== "masivo"){ var Pn = masProf(); m.innerHTML = '<div class="empty"><h2>Todavía no disponible para perfiles</h2><p>Esta pestaña por ahora funciona con un jugador. Para '+esc(Pn ? Pn.name : "un perfil")+' hay que calcular sobre las manos de muchos jugadores, y eso se agrega más adelante. Con perfiles ya funcionan Jugadores y Estadísticas.</p><button class="btn acc" data-stm="pl">Ver con un jugador</button></div>'; m._view = view; return; }
@@ -11194,11 +11208,15 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   function bootDone(){ BOOT = false; var b = $("boot"); if (b) b.remove(); }
   // pestañas ya dibujadas: al volver a una pestaña se muestra la misma pantalla al instante (si nada cambió)
   var VC = {}, VGEN = 0;
-  function vKey(v){ return v+"|"+VGEN+"|"+player+"|"+JSON.stringify(filt)+"|"+(db && db.hands ? db.hands.length : 0)+"|"+(studyPf ? 1 : 0)+"|"+(CFG.lang||""); }
-  function vBump(){ VGEN++; VC = {}; }
+  // también las sub-pestañas (Preflop, Reload IP, Por grupos…): volver a una ya vista es instantáneo
+  function subKey(){ var s = []; try { s.push(typeof pfTab === "undefined" ? "" : pfTab); } catch(e){ s.push(""); } try { s.push(typeof pfTop === "undefined" ? "" : pfTop); } catch(e){ s.push(""); } try { s.push(typeof lsSc === "undefined" ? "" : lsSc); } catch(e){ s.push(""); } try { s.push(typeof lsStk === "undefined" ? "" : lsStk); } catch(e){ s.push(""); } try { s.push(typeof lsPg === "undefined" ? "" : lsPg); } catch(e){ s.push(""); } try { s.push(typeof lsMW === "undefined" ? "" : lsMW); } catch(e){ s.push(""); } try { s.push(typeof dPot === "undefined" ? "" : dPot); } catch(e){ s.push(""); } try { s.push(typeof dSpot === "undefined" ? "" : dSpot); } catch(e){ s.push(""); } try { s.push(typeof d2Gen === "undefined" ? "" : d2Gen); } catch(e){ s.push(""); } try { s.push(typeof repBy === "undefined" ? "" : repBy); } catch(e){ s.push(""); } try { s.push(typeof plTab === "undefined" ? "" : plTab); } catch(e){ s.push(""); } try { s.push(typeof gGrp === "undefined" ? "" : gGrp); } catch(e){ s.push(""); } try { s.push(typeof gUnit === "undefined" ? "" : gUnit); } catch(e){ s.push(""); } try { s.push(typeof sesSort === "undefined" ? "" : sesSort); } catch(e){ s.push(""); } try { s.push(typeof sesUnit === "undefined" ? "" : sesUnit); } catch(e){ s.push(""); } try { s.push(typeof bbbLine === "undefined" ? "" : bbbLine); } catch(e){ s.push(""); } try { s.push(typeof bbbPot === "undefined" ? "" : bbbPot); } catch(e){ s.push(""); } try { s.push(typeof pfDT === "undefined" ? "" : pfDT); } catch(e){ s.push(""); } try { s.push(typeof lsSg === "undefined" ? "" : lsSg); } catch(e){ s.push(""); } try { s.push(typeof rgSt === "undefined" ? "" : rgSt); } catch(e){ s.push(""); } try { s.push(typeof digUnit === "undefined" ? "" : digUnit); } catch(e){ s.push(""); } try { s.push(PG.line, PG.pot); } catch(e){} return s.join("~"); }
+  function vKey(v){ return v+"|"+VGEN+"|"+player+"|"+JSON.stringify(filt)+"|"+(db && db.hands ? db.hands.length : 0)+"|"+(studyPf ? 1 : 0)+"|"+(CFG.lang||"")+"|"+subKey(); }
+  function vBump(){ VGEN++; VC = {}; VCN = []; }
   var VC_NO = /Calculando|Cargando|Preparando|Analizando|Todavía no se calcul/;
-  function vStash(m){ if (!m._view || !m._vkey || m._busy) return; var hold = document.createElement("div"); while (m.firstChild) hold.appendChild(m.firstChild); if (VC_NO.test(hold.textContent.slice(0, 3000))) return; VC[m._view] = {h:hold, k:m._vkey}; m._vkey = null; }
-  function vRestore(m){ var c = VC[view]; if (!c || c.k !== vKey(view)) return false; m.innerHTML = ""; while (c.h.firstChild) m.appendChild(c.h.firstChild); delete VC[view]; m._view = view; m._vkey = c.k; return true; }
+  var VCN = [];
+  function vStash(m){ if (!m._view || !m._vkey || m._busy) return; var k = m._vkey, hold = document.createElement("div"); while (m.firstChild) hold.appendChild(m.firstChild); m._vkey = null; if (VC_NO.test(hold.textContent.slice(0, 3000))) return;
+    VC[k] = {h:hold}; VCN = VCN.filter(function(x){ return x !== k; }); VCN.push(k); while (VCN.length > 80){ delete VC[VCN.shift()]; } }
+  function vRestore(m, k){ var c = VC[k]; if (!c) return false; m.innerHTML = ""; while (c.h.firstChild) m.appendChild(c.h.firstChild); delete VC[k]; VCN = VCN.filter(function(x){ return x !== k; }); m._view = view; m._vkey = k; return true; }
   function renderAll(){
     var hv = view === "suerte" || view === "grafg" ? "graf" : view === "sit" ? "stats" : stBase(view); stModeUi(); document.querySelectorAll("#rail button").forEach(function(b){ b.setAttribute("aria-current", b.dataset.v===hv ? "true" : "false"); });
     renderSide(); renderMain();
@@ -11246,7 +11264,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   })();
   // dibuja de antemano todas las pestañas (detrás de la pantalla de carga): después cambiar de pestaña es instantáneo
   async function warmViews(){ if (!db || !player || !db.hands || !db.hands.length) return; var v0 = view, isHero = !CFG.hero || player === CFG.hero;
-    var L = ["resumen","graf","manos","buscar","stats","mes","jugadores","linestats","deduce","deduce2","comparar2","pagar","p45","estrat","erec"].filter(function(v){ return VIEWS[v] && v !== v0 && (isHero || !MYV[v]); });
+    var L = ["resumen","graf","grafg","suerte","manos","buscar","stats","sit","mes","jugadores","linestats","deduce","deduce2","comparar2","pagar","p45","estrat","erec"].filter(function(v){ return VIEWS[v] && v !== v0 && (isHero || !MYV[v]); });
     L.push(v0); RSEEN = RSEEN || {};
     for (var i = 0; i < L.length; i++){ var v = L[i]; bootSet("Preparando las pantallas ("+(i+1)+" de "+L.length+")…", 0.9 + 0.1*i/L.length); await tick();
       RSEEN[player+"|"+v] = 1; view = v; try { renderAll(); } catch(e){ console.error(e); } }

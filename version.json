@@ -1,1 +1,1 @@
-{"v": 444, "sha256": "72c0a705fb36b63032497a344267d19f05cd5e9d8256c3bf3f79639591fad426", "notes": "Cambiar nombre de un alias: se edita ahí mismo y es instantáneo, sin volver a cargar manos. Ya no queda cargando en bucle al tocar pestañas mientras cargan las manos.", "shell": 1}
+{"v": 445, "sha256": "16e2790dbc5067c558cc0aa5eaaf82ee80d97a0a3d458c12364608fb280df12e", "notes": "Más rápido con bases grandes (Varianza y sub-pestañas). Nuevo: Con quién se sienta (en Deducción 1 > Selección de mesas).", "shell": 1}
