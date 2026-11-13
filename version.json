@@ -1,1 +1,1 @@
-{"v": 445, "sha256": "16e2790dbc5067c558cc0aa5eaaf82ee80d97a0a3d458c12364608fb280df12e", "notes": "Más rápido con bases grandes (Varianza y sub-pestañas). Nuevo: Con quién se sienta (en Deducción 1 > Selección de mesas).", "shell": 1}
+{"v": 446, "sha256": "d7e15630211393edc442e5e9e71141a95bff8574175dc63264a07f764c3bf5dc", "notes": "Al abrir se preparan también las sub-pestañas (Preflop, Reload IP, Por grupos, Varianza…): tocar cualquiera es instantáneo.", "shell": 1}
