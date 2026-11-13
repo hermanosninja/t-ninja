@@ -4873,7 +4873,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   var prepAuto = {};
   function prepBtnUpdate(){ var b = $("prepBtn"); if (b) b.hidden = true; if (prepping || importing || !db || !player) return; var miss = prepMissing(); if (!miss.length || (db.hands.length < 30000 && meta.hudV === 2)) return;
     if (CFG.hero && player !== CFG.hero) return; var k = DBSFX + "|" + player + "|" + db.hands.length; if (prepAuto[k]) return; prepAuto[k] = 1; setTimeout(function(){ if (!prepping && !importing) prepAll(); }, 400); }
-  async function saveEv(name, d){ if (!cdb || !d._ev) return; var pre = "snap|"+name+"|"; try { var m = await kvGet(pre+"meta"); if (!m || m.sig !== dataSig(name)) return; m.parts = m.parts.filter(function(p){ return p[0] !== "ev"; });
+  async function saveEv(name, d){ if (!cdb || !d._ev) return; var pre = "snap|"+name+"|"; try { var m = await kvGet(pre+"meta"); if (!m || m.sig !== snapSig(name)) return; m.parts = m.parts.filter(function(p){ return p[0] !== "ev"; });
       var a = d._ev, nc = Math.max(1, Math.ceil(a.length / CH)); for (var c = 0; c < nc; c++) await kvPut(pre+"a|ev|"+c, a.slice(c*CH, (c+1)*CH)); m.parts.push(["ev", a.constructor.name, a.length, nc]); await kvPut(pre+"meta", m); } catch(e){} }
   var SNAPP = null;
   async function prepAll(){
@@ -5110,19 +5110,26 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   var FSTASH = null;
   function fsGet(){ return {reports:reports, scRes:scRes, lsResF:lsResF, PG_L:PG_L, PG_C:PG_C, pfRes:pfRes, jgIdxC:jgIdxC, pfHC:pfHC, PFG_C:PFG_C, PFALL:PFALL, RIVC:RIVC, LSIDX:LSIDX, S2D:S2D, pfResF:pfResF, cache:cache, aggMemo:aggMemo, respMemo:respMemo, lsRes:lsRes, lsScan:lsScan, strat:strat, sheets:sheets, ded:ded, lnRes:lnRes, bbbRes:bbbRes, cbfRes:cbfRes, ndRes:ndRes, ndRes3:ndRes3, sumRes:sumRes, digRes:digRes, pfrRes:pfrRes, bhRes:bhRes, db:db}; }
   function fsSet(o){ reports = o.reports; scRes = o.scRes; lsResF = o.lsResF; PG_L = o.PG_L; PG_C = o.PG_C; pfRes = o.pfRes; jgIdxC = o.jgIdxC; pfHC = o.pfHC; PFG_C = o.PFG_C; PFALL = o.PFALL; RIVC = o.RIVC; LSIDX = o.LSIDX; S2D = o.S2D; pfResF = o.pfResF; cache = o.cache; aggMemo = o.aggMemo; respMemo = o.respMemo; lsRes = o.lsRes; lsScan = o.lsScan; strat = o.strat; sheets = o.sheets; ded = o.ded; lnRes = o.lnRes; bbbRes = o.bbbRes; cbfRes = o.cbfRes; ndRes = o.ndRes; ndRes3 = o.ndRes3; sumRes = o.sumRes; digRes = o.digRes; pfrRes = o.pfrRes; bhRes = o.bhRes; db = o.db; }
-  async function focus(name){
+  // si ya se están cargando las manos de ese jugador, no se empieza otra carga (antes, cada clic en una pestaña empezaba otra y quedaba en bucle)
+  var FOC = null;
+  function focus(name){ if (FOC && FOC.n === name) return FOC.p; var p = focus0(name); FOC = {n:name, p:p}; p.then(function(){ if (FOC && FOC.p === p) FOC = null; }, function(){ if (FOC && FOC.p === p) FOC = null; }); return p; }
+  async function focus0(name){
     if (typeof ER === "object" && ER.runs && ER.runs.length && ER.runs[0].pl !== name){ ER.runs = []; ER.det = null; }
     var nNew = name && summary[name] ? summary[name].n : 0, prevSt = (db && player && db.hands && db.hands.length && player !== name && (db.hands.length < 300000 || nNew < 300000)) ? {name:player, sig:dataSig(player), st:fsGet()} : null;
     if (name && FSTASH && FSTASH.name === name && FSTASH.sig === dataSig(name)){ var back = FSTASH; FSTASH = prevSt; fsSet(back.st); player = name; store("player" + DBSFX, name); fillSelectors(); renderAll(); prepBtnUpdate(); return; }
     FSTASH = prevSt;
     reports = {}; scRes = {}; lsResF = {}; PG_L = {}; PG_C = {}; pfRes = {}; jgIdxC = {}; pfHC = {}; PFG_C = {}; PFALL = {}; RIVC = {}; LSIDX = {}; S2D = {}; pfResF = {}; cache = {}; aggMemo = {}; respMemo = {}; lsRes = {}; lsScan = {}; lsSel = null; strat = {}; sheets = {}; shSel = null; ded = {}; lnRes = {}; bbbRes = {}; cbfRes = {}; ndRes = {}; ndRes3 = {}; sumRes = {}; digRes = {}; pfrRes = {}; bhRes = {}; db = null;
     if (!name){ db = new Engine.Db(); fillSelectors(); renderAll(); return; }
-    status("Cargando las manos de "+name+"…"); $("main").innerHTML = '<div class="empty"><p>Cargando las manos de '+esc(name)+'…</p></div>'; await tick();
+    var ownBoot = false; if (!BOOT && summary[name] && summary[name].n > 50000){ BOOT = true; ownBoot = true; var bo = document.createElement("div"); bo.id = "boot"; bo.innerHTML = '<div class="bt-in"><div class="bt-t">T Ninja</div><div id="bootLab"></div><div class="bt-bar"><i id="bootFill"></i></div></div>'; document.body.appendChild(bo); }
+    try {
+    bootSet("Cargando las manos de "+name+"…", 0.1); status("Cargando las manos de "+name+"…"); await tick();
     db = await loadPlayerHands(name); player = name; store("player" + DBSFX, name);
     if (db._rtOld){ markRivals(db, name); db._rtOld = false; SNAPP = saveSnap(name, db); }
     if (!db._fromSnap){ markRivals(db, name); var dsave = db; if (dsave.hands.length > 0) SNAPP = saveSnap(name, dsave); } // la foto se guarda antes de preparar los análisis
-    await loadRes(name);
+    bootSet("Preparando las pantallas…", 0.9); await loadRes(name);
+    if (ownBoot){ fillSelectors(); await warmViews(); }
     fillSelectors(); renderAll(); prepBtnUpdate();
+    } finally { if (ownBoot) bootDone(); }
   }
 
   // a quien le gana o le pierde: el resultado de cada mano se reparte entre los rivales segun lo que perdieron o ganaron
@@ -7254,7 +7261,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       + '<div style="display:flex;flex-direction:column;gap:12px"><div'+hid("cfg")+'>'+me+'</div><div'+hid("cfg")+'>'+thr+'</div><div'+(part==="pop"?' style="display:none"':'')+'>'+look+'</div>'+reset+'</div><div'+hid("hud")+'>'+hud+'</div><div style="grid-column:1/-1'+(part==="pop"?'':';display:none')+'">'+pop+'</div></div>';
   }
   document.addEventListener("change", function(e){ if (e.target && e.target.dataset && e.target.dataset.lng){ CFG.lang = e.target.dataset.lng; saveCfg(); applyLang(); } });
-  var alEdit = null, alDraft = [], alNameD = null, alModal = false;
+  var alEdit = null, alDraft = [], alNameD = null, alModal = false, alRen = null;
   function alSite(n){ return ({PS:"PokerStars", Chico:"Chico", Coin:"CoinPoker", PokerBros:"PokerBros", iPoker:"iPoker", Party:"partypoker", Winamax:"Winamax", WPN:"Winning", RIO:"Run It Once"}[(summary[n] && summary[n].site) || ""] || "888poker"); }
   // cambia el nombre del jugador que junta tus nicks (en todas las manos guardadas de Mis manos)
   // revisa en todas las manos guardadas qué nicks tuyos quedaron sin juntar en "Yo" (por ejemplo, por un cambio de nombre cortado a la mitad) y los junta
@@ -7295,6 +7302,26 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       store("heroAllName", nw); store("heroRenPending", null); store("player" + DBSFX, nw); CFG.hero = nw; saveCfg(); msg.textContent = " Listo. Recargando…"; setTimeout(function(){ location.reload(); }, 400);
     } catch(e){ msg.textContent = " No se pudo: " + (e.message || e); } }
   document.addEventListener("keydown", function(e){ var t = e.target; if (e.key === "Enter" && t && t.dataset && t.dataset.alin != null){ var b = document.querySelector('[data-alput="'+CSS.escape(t.dataset.alin)+'"]'); if (b) b.click(); } });
+  document.addEventListener("click", function(e){ var t = e.target; if (!t) return; if (t.id === "alRenX"){ alRen = null; aliasRefresh(); } if (t.id === "alRenOk") aliasRename(); });
+  document.addEventListener("keydown", function(e){ if (e.target && e.target.id === "alRenIn"){ if (e.key === "Enter") aliasRename(); if (e.key === "Escape"){ alRen = null; aliasRefresh(); } } });
+  // cambiar el nombre de un alias: lo ya calculado y guardado pasa al nombre nuevo (no se vuelven a cargar ni a preparar las manos)
+  async function aliasRename(){ var A = aliasAll(), old = alRen, inp = $("alRenIn"), msg = $("alRenMsg"); if (!old || !inp) return; var nw = inp.value.trim().replace(/^★\s*/, "");
+    if (!nw){ msg.textContent = "Poné un nombre."; return; } if (nw === old){ alRen = null; aliasRefresh(); return; } if (A[nw]){ msg.textContent = "Ya hay un alias con ese nombre."; return; }
+    var oF = ALIAS_PFX + old, nF = ALIAS_PFX + nw;
+    var MM = fsGet(); for (var mk in MM){ var M = MM[mk]; if (!M || mk === "db" || typeof M !== "object") continue; Object.keys(M).forEach(function(k){ if (k.indexOf(oF) >= 0) M[k.split(oF).join(nF)] = M[k]; }); } // lo calculado en memoria pasa al nombre nuevo
+    A[nw] = A[old]; delete A[old]; store("aliases" + DBSFX, A); alRen = null;
+    if (CFG.hero === oF){ CFG.hero = nF; saveCfg(); } if (load("player" + DBSFX, null) === oF) store("player" + DBSFX, nF);
+    buildAliasSummaries();
+    if (player === oF){ var keepDb = db; player = nF; if (keepDb){ keepDb._sig = dataSig(nF); if (keepDb.F) keepDb.F.who = nF; if (keepDb.store && keepDb.store.alias){ var al = {}; al[nF] = aliasMembers(nF); keepDb.store.alias = al; } } }
+    FSTASH = null; fillSelectors(); aliasRefresh(); renderAll(); status('Alias renombrado: "'+nw+'"');
+    aliasRenameCache(oF, nF).catch(function(e){ console.error(e); }); } // lo guardado en el disco pasa al nombre nuevo sin hacer esperar
+  async function aliasRenameCache(oF, nF){ if (!cdb) return; var rep = function(s){ return typeof s === "string" ? s.split(oF).join(nF) : s; };
+    for (var pre of ["snap|"+oF+"|", "res|"+oF+"|"]){ var range = IDBKeyRange.bound(pre, pre+"\uffff"), tx = cdb.transaction("kv"), os = tx.objectStore("kv"), keys = await req(os.getAllKeys(range)), vals = await req(os.getAll(range));
+      var tx2 = cdb.transaction("kv", "readwrite"), o2 = tx2.objectStore("kv");
+      keys.forEach(function(k, i){ var v = vals[i], nk = (pre[0] === "s" ? "snap|" : "res|") + nF + "|" + rep(k.slice(pre.length));
+        if (v && typeof v === "object" && !ArrayBuffer.isView(v)){ if (v.sig) v.sig = rep(v.sig); if (Array.isArray(v.strs)) v.strs = v.strs.map(function(s){ return s === oF ? nF : s; }); }
+        o2.put(v, nk); o2.delete(k); });
+      await txDone(tx2); } }
   function aliasRefresh(){ if (alModal) aliasModal(); else renderMain(); }
   function aliasModal(){ alModal = true; $("modal").innerHTML = '<div style="max-width:860px;width:96vw;max-height:88vh;overflow:auto">'+aliasBoxHtml().replace('<h2>Alias</h2>', '<h2>Alias <button class="btn" id="alClose">Cerrar</button></h2>')+'</div>'; $("modal").hidden = false;
     $("alClose").onclick = function(){ alModal = false; $("modal").hidden = true; renderMain(); }; var ai = $("alAdd"); if (ai) ai.focus(); }
@@ -7309,10 +7336,10 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
         + '<table class="tbl"><tbody>'+cand.map(function(n){ return '<tr><td>'+siteBadge(siteCode(n))+' '+esc(n)+'</td><td class="num">'+fmtN(summary[n].n)+' manos</td><td><button class="link" data-aladd="'+esc(n)+'">+ Agregar</button></td></tr>'; }).join("")+'</tbody></table></div>'; }
     return '<section class="box"><h2>Alias</h2><div class="bd">'+mine+'<p class="small" style="margin:0 0 8px">Un alias junta varios jugadores en uno (por ejemplo todos tus nicks, o un grupo de regulares buenos). Al elegirlo en "Jugador", el programa usa las manos de todos juntos. Los alias se guardan por base ('+esc(DBNAME)+').</p>'
       + alNames.map(function(a){ var mem = AL[a] || [], nh = summary[ALIAS_PFX + a] ? summary[ALIAS_PFX + a].n : 0; // cada alias arriba y sus nicks abajo, en una columna
-          return '<div style="border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:0 0 10px"><div style="display:flex;gap:12px;align-items:center;margin:0 0 6px"><b style="font-size:16px">'+esc(a)+'</b><span class="small">'+fmtN(nh)+' manos</span><span style="flex:1"></span><button class="link" data-aled="'+esc(a)+'">Cambiar nombre</button><button class="link" data-aldel="'+esc(a)+'">Borrar alias</button></div>'
+          return '<div style="border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:0 0 10px"><div style="display:flex;gap:12px;align-items:center;margin:0 0 6px">'+(alRen === a ? '<input id="alRenIn" class="cfin" value="'+esc(a)+'" style="width:200px"><button class="btn acc" id="alRenOk">Guardar</button><button class="btn" id="alRenX">Cancelar</button><span class="small" id="alRenMsg"></span>' : '<b style="font-size:16px">'+esc(a)+'</b><button class="link" data-aled="'+esc(a)+'">Cambiar nombre</button>')+'<span class="small">'+fmtN(nh)+' manos</span><span style="flex:1"></span><button class="link" data-aldel="'+esc(a)+'">Borrar alias</button></div>'
             + '<table class="tbl" style="width:auto;min-width:420px"><thead><tr><th>Nick</th><th>Sala</th><th class="num">Manos</th><th></th></tr></thead><tbody>'+mem.map(function(m){ return '<tr><td>'+siteBadge(siteCode(m))+' '+esc(m)+'</td><td class="small">'+esc(alSite(m))+'</td><td class="num">'+fmtN(summary[m] ? summary[m].n : 0)+'</td><td><button class="link" data-alrm="'+esc(a)+'" data-alm="'+esc(m)+'">Sacar</button></td></tr>'; }).join("")+'</tbody></table>'
             + '<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><input class="cfin" list="cfHeroL2" data-alin="'+esc(a)+'" style="width:220px" placeholder="agregar un nick"><button class="btn" data-alput="'+esc(a)+'">Agregar</button><span class="small" data-almsg="'+esc(a)+'"></span></div></div>'; }).join("")
-      + '<h3 style="margin:14px 0 6px">'+(alSel ? 'Cambiar el nombre de "'+esc(alSel)+'"' : 'Nuevo alias')+'</h3>'
+      + '<h3 style="margin:14px 0 6px">Nuevo alias</h3>'
       + '<div class="cfgrow"><label style="width:120px">Nombre del alias</label><input id="alName" class="cfin" value="'+esc(alNameD != null ? alNameD : (alSel || ""))+'" style="width:220px" placeholder="por ejemplo: Eric"></div>'
       + '<div class="cfgrow"><label style="width:120px">Jugadores</label><input id="alAdd" class="cfin" list="cfHeroL2" style="width:220px" placeholder="escribí un nick y Enter"><datalist id="cfHeroL2">'+Object.keys(summary).filter(function(n){ return !summary[n]._alias; }).sort(function(a,b){ return summary[b].n - summary[a].n; }).slice(0, 2000).map(function(n){ return '<option value="'+esc(n)+'" label="'+esc(n+' · '+alSite(n)+' · '+fmtN(summary[n].n)+' manos')+'">'; }).join("")+'</datalist><button class="btn" id="alAddB">Agregar</button></div>'
       + '<table class="tbl" id="alMem" style="margin:6px 0 10px;width:auto;min-width:420px">'+((alDraft || []).length ? '<thead><tr><th>Nick</th><th>Sala</th><th class="num">Manos</th><th></th></tr></thead>' : '')+'<tbody>'+(alDraft || []).map(function(m){ return '<tr><td>'+siteBadge(siteCode(m))+' '+esc(m)+'</td><td class="small">'+esc(alSite(m))+'</td><td class="num">'+fmtN(summary[m] ? summary[m].n : 0)+'</td><td><button class="link" data-almx="'+esc(m)+'">Sacar</button></td></tr>'; }).join("")+'</tbody></table>'
@@ -7335,7 +7362,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
         return; }
       if (t.dataset.almx != null){ alDraft = alDraft.filter(function(m){ return m !== t.dataset.almx; }); alNameD = $("alName").value; aliasRefresh(); return; }
       if (t.id === "alNew"){ alEdit = null; alDraft = []; alNameD = null; aliasRefresh(); return; }
-      if (t.dataset.aled != null){ alEdit = t.dataset.aled; alDraft = (A[alEdit] || []).slice(); alNameD = null; aliasRefresh(); return; }
+      if (t.dataset.aled != null){ alRen = t.dataset.aled; aliasRefresh(); var ri = $("alRenIn"); if (ri){ ri.focus(); ri.select(); } return; }
       if (t.dataset.aldel != null){ var dn = ALIAS_PFX + t.dataset.aldel; delete A[t.dataset.aldel]; store("aliases" + DBSFX, A); if (CFG.hero === dn){ CFG.hero = null; saveCfg(); } buildAliasSummaries(); fillSelectors(); aliasRefresh(); if (player === dn){ var pl0 = playersList(); setPlayer(pl0.length ? pl0[0][0] : null); } return; }
       if (t.id === "alSave"){ var nm = ($("alName").value || "").trim().replace(/^★\s*/, ""); if (!nm){ $("alMsg").textContent = "Poné un nombre."; return; } if (!alDraft.length){ $("alMsg").textContent = "Agregá al menos un jugador."; return; }
         var oldN = alEdit ? ALIAS_PFX + alEdit : null; if (alEdit && alEdit !== nm) delete A[alEdit]; A[nm] = alDraft.slice(); store("aliases" + DBSFX, A); alEdit = nm; alNameD = null;
@@ -11177,7 +11204,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     renderSide(); renderMain();
     if (meta.hands && player) status("Listo · "+fmtN(meta.hands)+" manos en la base · jugador: "+player+(CFG.lim > 0 && db && db.hands ? " · modo prueba: "+fmtN(db.hands.length)+" manos" : "")+" · "+fdesc().replace(/<[^>]+>/g,""));
   }
-  function status(t){ $("status").textContent = t; }
+  function status(t){ $("status").textContent = t; if (BOOT && /^Cargando las manos/.test(t)) bootSet(t, null); }
 
   $("impBtn").addEventListener("click", function(e){ e.stopPropagation(); $("impMenu").hidden = !$("impMenu").hidden; });
   document.addEventListener("click", function(e){ var m = $("impMenu"); if (m && !m.hidden && !m.contains(e.target)) m.hidden = true; });
