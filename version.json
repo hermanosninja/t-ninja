@@ -1,1 +1,1 @@
-{"v": 447, "sha256": "07333e2326d4e44026238aa26ede0c849223b54fa572eb6ab475fdd27eb5ca79", "notes": "Las actualizaciones ya no vuelven a preparar análisis que no cambiaron.", "shell": 1}
+{"v": 448, "sha256": "6639f9cf9f659beee7780b042f1b5e27102aaae5503bacf7d0f3e72396973f1a", "notes": "Franjas horarias: se cambian con el lápiz de cada franja (ventana) y se agregan con el botón.", "shell": 1}
