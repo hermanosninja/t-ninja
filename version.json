@@ -1,1 +1,1 @@
-{"v": 440, "sha256": "18c46cc077af68995afd9af7b08496be601e05821736ed6948e825f2986351e3", "notes": "Primera versión con actualización automática.", "shell": 1}
+{"v": 441, "sha256": "9ba40b773aca693149c10a84c35d1edcc1d9d21adc97feda7594729d1d50d006", "notes": "Más rápido y usa menos memoria con bases grandes (2 millones de manos). El informe del grupo de referencia de Resumen queda guardado.", "shell": 1}

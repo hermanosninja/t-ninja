@@ -4814,6 +4814,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       for (var i = 0; i < m.parts.length; i++){ var p = m.parts[i]; byTag[p[0]] = [new self[p[1]](p[2]), 0]; }
       for (var q = 0; q < jobs.length; q++){ var chunk = got[q]; if (!chunk) return null; var bt = byTag[jobs[q][0][0]]; bt[0].set(chunk, bt[1]); bt[1] += chunk.length; }
       for (var tg in byTag) arrs[tg] = byTag[tg][0];
+      jobs.length = 0; got.length = 0; jobs = null; got = null; byTag = null; // las partes se sueltan: si no, quedan en memoria (1 GB con 2 millones de manos)
     } catch(e){ return null; }
     st.n = m.n; st.np = m.np; st.na = m.na; st.strs = m.strs; st.strI = null; st.exc = new Map(m.exc); st.cache = new Map(); if (isAlias(name)){ st.alias = {}; st.alias[name] = aliasMembers(name); }
     SNAP_S.forEach(function(k){ if (arrs["s."+k]) st[k] = arrs["s."+k]; }); if (!arrs["s.order"]) st.order = null;
@@ -4823,7 +4824,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     return d;
   }
   // resultados de los análisis
-  var RESOBJ = function(n){ return {PG_L:PG_L, jgIdxC:jgIdxC, scRes:scRes, reports:reports, strat:strat, sheets:sheets, ded:ded, lnRes:lnRes, bbbRes:bbbRes, cbfRes:cbfRes, ndRes:ndRes, sumRes:sumRes, digRes:digRes, pfrRes:pfrRes, bhRes:bhRes, ndRes3:ndRes3, aggMemo:aggMemo, respMemo:respMemo, lsRes:lsRes, pfRes:pfRes, lsResF:lsResF, pfResF:pfResF, cache:cache}[n]; };
+  var RESOBJ = function(n){ return {PG_L:PG_L, jgIdxC:jgIdxC, scRes:scRes, reports:reports, strat:strat, sheets:sheets, ded:ded, lnRes:lnRes, bbbRes:bbbRes, cbfRes:cbfRes, ndRes:ndRes, sumRes:sumRes, digRes:digRes, pfrRes:pfrRes, bhRes:bhRes, ndRes3:ndRes3, grpRes:grpRes, aggMemo:aggMemo, respMemo:respMemo, lsRes:lsRes, pfRes:pfRes, lsResF:lsResF, pfResF:pfResF, cache:cache}[n]; };
   function noFns(v, seen){ // los resultados con funciones adentro no se pueden guardar: se copian sin las funciones
     if (!v || typeof v !== "object") return typeof v === "function" ? undefined : v; seen = seen || new Map(); if (seen.has(v)) return seen.get(v);
     if (ArrayBuffer.isView(v)) return v; var o = Array.isArray(v) ? [] : {}; seen.set(v, o); for (var k in v){ if (!Object.prototype.hasOwnProperty.call(v, k)) continue; var x = v[k]; if (typeof x !== "function") o[k] = noFns(x, seen); } return o; }
@@ -4862,6 +4863,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     ["Rangos preflop", function(){ pfrRes[player] = keepRes("pfrRes", player, PFRanges.build(db, player, window.FN_RANGES, db.rt || null)); }, function(){ return !!pfrRes[player]; }],
     ["Selección de mesas", function(){ bhRes[player] = keepRes("bhRes", player, Bumhunt.analyze(db, player, bhStats)); }, function(){ return !!bhRes[player]; }],
     ["Deducción (situaciones)", function(){ var k = player+"|srp"; ded[k] = keepRes("ded", k, Deduce.build(db, player, {pot:"srp"})); }, function(){ return !!ded[player+"|srp"]; }],
+    ["Grupo de referencia", function(){ grpCalc(); }, function(){ var K = grpKey(); return !K.G.length || !!grpRes[K.key]; }],
     ["Rival: fugas", function(){ reports[player] = keepRes("reports", player, Analysis.analyze(db, player)); }, function(){ return !!reports[player]; }],
   ];
   var prepping = false;
@@ -5108,7 +5110,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   function fsSet(o){ reports = o.reports; scRes = o.scRes; lsResF = o.lsResF; PG_L = o.PG_L; PG_C = o.PG_C; pfRes = o.pfRes; jgIdxC = o.jgIdxC; pfHC = o.pfHC; PFG_C = o.PFG_C; PFALL = o.PFALL; RIVC = o.RIVC; LSIDX = o.LSIDX; S2D = o.S2D; pfResF = o.pfResF; cache = o.cache; aggMemo = o.aggMemo; respMemo = o.respMemo; lsRes = o.lsRes; lsScan = o.lsScan; strat = o.strat; sheets = o.sheets; ded = o.ded; lnRes = o.lnRes; bbbRes = o.bbbRes; cbfRes = o.cbfRes; ndRes = o.ndRes; ndRes3 = o.ndRes3; sumRes = o.sumRes; digRes = o.digRes; pfrRes = o.pfrRes; bhRes = o.bhRes; db = o.db; }
   async function focus(name){
     if (typeof ER === "object" && ER.runs && ER.runs.length && ER.runs[0].pl !== name){ ER.runs = []; ER.det = null; }
-    var prevSt = (db && player && db.hands && db.hands.length && player !== name) ? {name:player, sig:dataSig(player), st:fsGet()} : null;
+    var nNew = name && summary[name] ? summary[name].n : 0, prevSt = (db && player && db.hands && db.hands.length && player !== name && (db.hands.length < 300000 || nNew < 300000)) ? {name:player, sig:dataSig(player), st:fsGet()} : null;
     if (name && FSTASH && FSTASH.name === name && FSTASH.sig === dataSig(name)){ var back = FSTASH; FSTASH = prevSt; fsSet(back.st); player = name; store("player" + DBSFX, name); fillSelectors(); renderAll(); prepBtnUpdate(); return; }
     FSTASH = prevSt;
     reports = {}; scRes = {}; lsResF = {}; PG_L = {}; PG_C = {}; pfRes = {}; jgIdxC = {}; pfHC = {}; PFG_C = {}; PFALL = {}; RIVC = {}; LSIDX = {}; S2D = {}; pfResF = {}; cache = {}; aggMemo = {}; respMemo = {}; lsRes = {}; lsScan = {}; lsSel = null; strat = {}; sheets = {}; shSel = null; ded = {}; lnRes = {}; bbbRes = {}; cbfRes = {}; ndRes = {}; ndRes3 = {}; sumRes = {}; digRes = {}; pfrRes = {}; bhRes = {}; db = null;
@@ -9582,10 +9584,12 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   document.addEventListener("click", function(e){ var b = e.target.closest && e.target.closest("[data-fcs]"); if (!b) return; fcSort = b.dataset.fcs; renderMain(); });
   function grpKey(){ var G = scRefGroup(); return {key: "G|"+player+"|"+scRef+"|"+(CFG.scRefMin||20000)+"|"+(CFG.scRefBb!=null?CFG.scRefBb:3)+"|"+(CFG.scTopN||10)+"|"+G.length, G: G}; }
   function grpGet(){ var K = grpKey(); if (!K.G.length) return {none:true, G:K.G}; if (grpRes[K.key]) return grpRes[K.key];
-    if (!grpBusy){ grpBusy = true; setTimeout(function(){ try { var W = {}; K.G.forEach(function(x){ W[x.n] = 1; }); var cap = CFG.grpCap || 400000, n = 0;
-        var keep = function(hi){ if (n >= cap) return false; var h = db.hands[hi]; for (var j = 0; j < h.players.length; j++) if (W[h.players[j].name]){ n++; return true; } return false; };
-        var R0 = Analysis.analyze(db, W, keep); R0.G = K.G; R0.capped = n >= cap; grpRes[K.key] = R0; } catch(e){ console.error(e); grpRes[K.key] = {err: e.message, G: K.G}; } grpBusy = false; renderMain(); }, 40); }
+    if (!grpBusy){ grpBusy = true; setTimeout(function(){ try { grpCalc(K); } catch(e){ console.error(e); grpRes[K.key] = {err: e.message, G: K.G}; } grpBusy = false; renderMain(); }, 40); }
     return {busy:true, G:K.G}; }
+  // se calcula una vez y queda guardado (con 2 millones de manos tarda más de 30 s)
+  function grpCalc(K){ K = K || grpKey(); if (!K.G.length || grpRes[K.key]) return; var W = {}; K.G.forEach(function(x){ W[x.n] = 1; }); var cap = CFG.grpCap || 400000, n = 0;
+    var keep = function(hi){ if (n >= cap) return false; var h = db.hands[hi]; for (var j = 0; j < h.players.length; j++) if (W[h.players[j].name]){ n++; return true; } return false; };
+    var R0 = Analysis.analyze(db, W, keep); R0.G = K.G; R0.capped = n >= cap; grpRes[K.key] = keepRes("grpRes", K.key, R0); }
   function grpBar(){ var RL = {auto:"Regulares ganadores", top:"Los mejores de tu base", reg:"Todos los regulares"}, g = grpGet();
     var st = g.none ? 'No hay jugadores que cumplan el criterio. <a href="#" id="scCfg">cambiar</a>' : g.busy ? 'Calculando el grupo ('+fmtN(g.G.length)+' jugadores)…' : g.err ? 'No se pudo calcular: '+esc(g.err) : fmtN(g.G.length)+' jugadores · '+fmtN(g.decisions)+' decisiones en manos de tu base'+(g.capped ? ' (muestra)' : '')+' · <a href="#" id="scCfg">cambiar</a>';
     return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 10px"><span class="small" style="margin-right:4px">Comparar con:</span>'+Object.keys(RL).map(function(k){ return '<button class="tab" data-scref="'+k+'" aria-selected="'+(scRef===k)+'">'+RL[k]+'</button>'; }).join("")+'<span class="small" style="margin-left:8px">'+st+'</span></div>'; }
