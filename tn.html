@@ -672,7 +672,6 @@ td.ls-l, .ls-l, code{font-family:var(--f-mono)}
     <button data-v="deduce"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M5 9h14M7 9l-3 7h6zM17 9l-3 7h6zM12 7v14M8 21h8"/></svg>Deducción 1</button>
     <button data-v="deduce2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M5 9h14M7 9l-3 7h6zM17 9l-3 7h6zM12 7v14M8 21h8"/></svg>Deducción 2</button>
     <button data-v="comparar2"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h7v12H4zM13 6h7v12h-7z"/></svg>Comparar 2</button>
-    <button data-v="pagar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M12 4v16"/></svg>Con qué pagar</button>
     <button data-v="erec"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l4-6 4 3 6-9"/><path d="M15 7h4v4"/></svg>Estrategia recomendada</button>
     <button data-v="p45"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="7" height="10" rx="1"/><rect x="13" y="9" width="7" height="10" rx="1"/></svg>4bet y 5bet</button>
     <button data-v="estrat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15l4-4 3 3 5-6"/><circle cx="18" cy="8" r="1.5"/></svg>Estrategias</button>
@@ -4712,7 +4711,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   function buildAliasSummaries(){ if (typeof vBump === "function") vBump(); Object.keys(summary).forEach(function(k){ if (summary[k] && summary[k]._alias) delete summary[k]; }); var A = aliasAll();
     Object.keys(A).forEach(function(nm){ var id = ALIAS_PFX + nm, mem = aliasMembers(id); if (!mem.length) return; var r = { name: id, _alias: 1, members: mem }; mem.forEach(function(m){ sumInto(r, summary[m]); }); summary[id] = r; }); }
   function load(k,d){ try{ var v = localStorage.getItem("trk_"+k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
-  view = load("view","resumen"); if (view === "planilla" || view === "estrategia" || view === "lineas") view = "linestats";
+  view = load("view","resumen"); if (view === "planilla" || view === "estrategia" || view === "lineas" || view === "pagar" || view === "misfugas" || view === "analisis") view = "linestats";
 
   // ================= base de datos en el navegador (IndexedDB) =================
   // Se guardan las manos ya procesadas (no el texto original), con un indice por jugador.
@@ -4779,7 +4778,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       await importFiles(files, {reproc:true, last: i + CH >= keys.length, prog:"Volviendo a leer los historiales guardados: "+fmtN(Math.min(keys.length, i + CH))+" de "+fmtN(keys.length)+" archivos"}); }
     meta.parseV = PARSE_VER; try { await saveSummary(); } catch(e){} var b = $("reprocBar"); if (b) b.hidden = true; }
   async function reprocCheck(){ var b = $("reprocBar"); if (!b) return; var n = meta.parseV && meta.parseV !== PARSE_VER ? await rawCount() : 0; b.hidden = !n; if (n){ b.textContent = "Hay una lectura de historiales mejorada: actualizar mis manos ("+fmtN(n)+" archivos guardados)"; b.onclick = function(){ if (confirm("Se vuelven a leer todas tus manos desde los historiales guardados, con la lectura nueva. Puede tardar varios minutos. ¿Seguimos?")) reprocessAll(); }; } }
-  var cdb = null, SNAP_VER = "00fc6a857b", RES_VER = "1c25bbd66c"; var RES_VERS = {"reports": "a45f4760b6", "strat": "25d4866012", "sheets": "92bbf69020", "ded": "1110a3328b", "lnRes": "32022eba5d", "bbbRes": "7b0cb8d089", "cbfRes": "cd371d624c", "ndRes": "c51407e11d", "ndRes3": "c51407e11d", "sumRes": "9fcd85614f", "digRes": "2b68448454", "pfrRes": "96c948a662", "bhRes": "858c0e97c7", "lsRes": "a1ef035860", "lsResF": "a1ef035860", "pfRes": "69c9ac44f7", "pfResF": "be53e052bd", "aggMemo": "50db848826", "respMemo": "d22b18fcf8", "scRes": "b5e888a1cb", "cache": "91b1544fc2", "PG_L": "74b95fe2d1", "jgIdxC": "cd4868b781", "grpRes": "a64cc7a7d2"}; function resVer(o){ return RES_VERS[o] || RES_VER; }
+  var cdb = null, SNAP_VER = "00fc6a857b", RES_VER = "1c25bbd66c"; var RES_VERS = {"reports": "a45f4760b6", "strat": "25d4866012", "sheets": "92bbf69020", "ded": "1110a3328b", "lnRes": "32022eba5d", "bbbRes": "7b0cb8d089", "cbfRes": "cd371d624c", "ndRes": "c51407e11d", "ndRes3": "c51407e11d", "sumRes": "9fcd85614f", "digRes": "2b68448454", "pfrRes": "96c948a662", "bhRes": "858c0e97c7", "lsRes": "a1ef035860", "lsResF": "a1ef035860", "pfRes": "69c9ac44f7", "pfResF": "be53e052bd", "aggMemo": "50db848826", "respMemo": "d22b18fcf8", "scRes": "b5e888a1cb", "cache": "91b1544fc2", "lsxd": "dd3487a2a2", "PG_L": "74b95fe2d1", "jgIdxC": "cd4868b781", "grpRes": "a64cc7a7d2"}; function resVer(o){ return RES_VERS[o] || RES_VER; }
   async function openCache(){ try{ var r = indexedDB.open("tracker-cache" + DBSFX, 1); r.onupgradeneeded = function(){ r.result.createObjectStore("kv"); }; cdb = await req(r); }catch(e){ cdb = null; } }
   function rtTagNow(){ return (typeof Analysis !== "undefined" ? JSON.stringify(Analysis.RTC) : "") + "#" + (meta && meta.hands ? Math.floor(Math.log(meta.hands) / Math.log(1.1)) : 0); }
   function snapSig(name){ return dataSig(name).split("|").slice(0, -1).join("|"); } // la foto de las manos no depende de los tipos de rival
@@ -4830,7 +4829,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     return d;
   }
   // resultados de los análisis
-  var RESOBJ = function(n){ return {PG_L:PG_L, jgIdxC:jgIdxC, scRes:scRes, reports:reports, strat:strat, sheets:sheets, ded:ded, lnRes:lnRes, bbbRes:bbbRes, cbfRes:cbfRes, ndRes:ndRes, sumRes:sumRes, digRes:digRes, pfrRes:pfrRes, bhRes:bhRes, ndRes3:ndRes3, grpRes:grpRes, aggMemo:aggMemo, respMemo:respMemo, lsRes:lsRes, pfRes:pfRes, lsResF:lsResF, pfResF:pfResF, cache:cache}[n]; };
+  var RESOBJ = function(n){ return {PG_L:PG_L, jgIdxC:jgIdxC, scRes:scRes, reports:reports, strat:strat, sheets:sheets, ded:ded, lnRes:lnRes, bbbRes:bbbRes, cbfRes:cbfRes, ndRes:ndRes, sumRes:sumRes, digRes:digRes, pfrRes:pfrRes, bhRes:bhRes, ndRes3:ndRes3, grpRes:grpRes, lsxd:LSXD, aggMemo:aggMemo, respMemo:respMemo, lsRes:lsRes, pfRes:pfRes, lsResF:lsResF, pfResF:pfResF, cache:cache}[n]; };
   function noFns(v, seen){ // los resultados con funciones adentro no se pueden guardar: se copian sin las funciones
     if (!v || typeof v !== "object") return typeof v === "function" ? undefined : v; seen = seen || new Map(); if (seen.has(v)) return seen.get(v);
     if (ArrayBuffer.isView(v)) return v; var o = Array.isArray(v) ? [] : {}; seen.set(v, o); for (var k in v){ if (!Object.prototype.hasOwnProperty.call(v, k)) continue; var x = v[k]; if (typeof x !== "function") o[k] = noFns(x, seen); } return o; }
@@ -4858,7 +4857,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     ["Estadísticas de todos los jugadores (HUD)", function(ov){ return hudRebuild(ov); }, function(){ return !meta.hands || meta.hudV === 2; }],
         ["Gráficos", function(){ db.evCurve(player, {}); }, function(){ return !!db._ev; }],
     ["Estadísticas por línea", function(){ if (!lsRes[player]) lsRes[player] = keepRes("lsRes", player, LineStats.build(db, player)); if (!pfRes[player]) pfRes[player] = keepRes("pfRes", player, pfAccum(db.hands, player, {})); }, function(){ return !!lsRes[player] && !!pfRes[player]; }],
-    ["Con qué pagar", function(){ ["srp","3bp"].forEach(function(pt){ Object.keys(BBB.LINES).forEach(function(ln){ pgLine(ln, pt); }); }); }, function(){ return ["srp","3bp"].every(function(pt){ return Object.keys(BBB.LINES).every(function(ln){ return !!PG_L[player+"|"+ln+"|"+pt]; }); }); }],
+    ["Detalle de las estadísticas", function(){ return lsxBuild(); }, function(){ return !cdb || lsxOk(); }],
     ["Varianza", function(){ var f0 = filt; filt = {}; try { varCalc(); } finally { filt = f0; } }, function(){ var f0 = filt; filt = {}; try { var ok0 = cache["own"+player]; if (ok0 == null) return false; return !!cache["var"+(ok0 || varAll ? "all" : "ai")+"{}"+player]; } finally { filt = f0; } }],
     ["Reportes", function(){ var f0 = filt; filt = {}; try { repCalc(); } finally { filt = f0; } }, function(){ return !!cache["rep"+repBy+"{}"+player+(CFG.mesCols||["vpip","pfr","3b"]).join()]; }],
     ["Estrategias", function(){ jgBuild(player); }, function(){ return !!jgIdxC[player + "|" + db.hands.length]; }],
@@ -5112,8 +5111,8 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   // carga en memoria las manos del jugador elegido
   // el jugador anterior queda en memoria: volver de Estudio a Mi juego (o al revés) es instantáneo
   var FSTASH = null;
-  function fsGet(){ return {reports:reports, scRes:scRes, lsResF:lsResF, PG_L:PG_L, PG_C:PG_C, pfRes:pfRes, jgIdxC:jgIdxC, pfHC:pfHC, PFG_C:PFG_C, PFALL:PFALL, RIVC:RIVC, LSIDX:LSIDX, S2D:S2D, pfResF:pfResF, cache:cache, aggMemo:aggMemo, respMemo:respMemo, lsRes:lsRes, lsScan:lsScan, strat:strat, sheets:sheets, ded:ded, lnRes:lnRes, bbbRes:bbbRes, cbfRes:cbfRes, ndRes:ndRes, ndRes3:ndRes3, sumRes:sumRes, digRes:digRes, pfrRes:pfrRes, bhRes:bhRes, db:db}; }
-  function fsSet(o){ reports = o.reports; scRes = o.scRes; lsResF = o.lsResF; PG_L = o.PG_L; PG_C = o.PG_C; pfRes = o.pfRes; jgIdxC = o.jgIdxC; pfHC = o.pfHC; PFG_C = o.PFG_C; PFALL = o.PFALL; RIVC = o.RIVC; LSIDX = o.LSIDX; S2D = o.S2D; pfResF = o.pfResF; cache = o.cache; aggMemo = o.aggMemo; respMemo = o.respMemo; lsRes = o.lsRes; lsScan = o.lsScan; strat = o.strat; sheets = o.sheets; ded = o.ded; lnRes = o.lnRes; bbbRes = o.bbbRes; cbfRes = o.cbfRes; ndRes = o.ndRes; ndRes3 = o.ndRes3; sumRes = o.sumRes; digRes = o.digRes; pfrRes = o.pfrRes; bhRes = o.bhRes; db = o.db; }
+  function fsGet(){ return {LSXD:LSXD, LSXP:LSXP, reports:reports, scRes:scRes, lsResF:lsResF, PG_L:PG_L, PG_C:PG_C, pfRes:pfRes, jgIdxC:jgIdxC, pfHC:pfHC, PFG_C:PFG_C, PFALL:PFALL, RIVC:RIVC, LSIDX:LSIDX, S2D:S2D, pfResF:pfResF, cache:cache, aggMemo:aggMemo, respMemo:respMemo, lsRes:lsRes, lsScan:lsScan, strat:strat, sheets:sheets, ded:ded, lnRes:lnRes, bbbRes:bbbRes, cbfRes:cbfRes, ndRes:ndRes, ndRes3:ndRes3, sumRes:sumRes, digRes:digRes, pfrRes:pfrRes, bhRes:bhRes, db:db}; }
+  function fsSet(o){ LSXD = o.LSXD; LSXP = o.LSXP; reports = o.reports; scRes = o.scRes; lsResF = o.lsResF; PG_L = o.PG_L; PG_C = o.PG_C; pfRes = o.pfRes; jgIdxC = o.jgIdxC; pfHC = o.pfHC; PFG_C = o.PFG_C; PFALL = o.PFALL; RIVC = o.RIVC; LSIDX = o.LSIDX; S2D = o.S2D; pfResF = o.pfResF; cache = o.cache; aggMemo = o.aggMemo; respMemo = o.respMemo; lsRes = o.lsRes; lsScan = o.lsScan; strat = o.strat; sheets = o.sheets; ded = o.ded; lnRes = o.lnRes; bbbRes = o.bbbRes; cbfRes = o.cbfRes; ndRes = o.ndRes; ndRes3 = o.ndRes3; sumRes = o.sumRes; digRes = o.digRes; pfrRes = o.pfrRes; bhRes = o.bhRes; db = o.db; }
   // si ya se están cargando las manos de ese jugador, no se empieza otra carga (antes, cada clic en una pestaña empezaba otra y quedaba en bucle)
   var FOC = null;
   function focus(name){ if (FOC && FOC.n === name) return FOC.p; var p = focus0(name); FOC = {n:name, p:p}; p.then(function(){ if (FOC && FOC.p === p) FOC = null; }, function(){ if (FOC && FOC.p === p) FOC = null; }); return p; }
@@ -5122,7 +5121,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     var nNew = name && summary[name] ? summary[name].n : 0, prevSt = (db && player && db.hands && db.hands.length && player !== name && (db.hands.length < 300000 || nNew < 300000)) ? {name:player, sig:dataSig(player), st:fsGet()} : null;
     if (name && FSTASH && FSTASH.name === name && FSTASH.sig === dataSig(name)){ var back = FSTASH; FSTASH = prevSt; fsSet(back.st); player = name; store("player" + DBSFX, name); fillSelectors(); renderAll(); prepBtnUpdate(); return; }
     FSTASH = prevSt;
-    reports = {}; scRes = {}; lsResF = {}; PG_L = {}; PG_C = {}; pfRes = {}; jgIdxC = {}; pfHC = {}; PFG_C = {}; PFALL = {}; RIVC = {}; LSIDX = {}; S2D = {}; pfResF = {}; cache = {}; aggMemo = {}; respMemo = {}; lsRes = {}; lsScan = {}; lsSel = null; strat = {}; sheets = {}; shSel = null; ded = {}; lnRes = {}; bbbRes = {}; cbfRes = {}; ndRes = {}; ndRes3 = {}; sumRes = {}; digRes = {}; pfrRes = {}; bhRes = {}; db = null;
+    LSXD = {}; LSXP = {}; reports = {}; scRes = {}; lsResF = {}; PG_L = {}; PG_C = {}; pfRes = {}; jgIdxC = {}; pfHC = {}; PFG_C = {}; PFALL = {}; RIVC = {}; LSIDX = {}; S2D = {}; pfResF = {}; cache = {}; aggMemo = {}; respMemo = {}; lsRes = {}; lsScan = {}; lsSel = null; strat = {}; sheets = {}; shSel = null; ded = {}; lnRes = {}; bbbRes = {}; cbfRes = {}; ndRes = {}; ndRes3 = {}; sumRes = {}; digRes = {}; pfrRes = {}; bhRes = {}; db = null;
     if (!name){ db = new Engine.Db(); fillSelectors(); renderAll(); return; }
     var ownBoot = false; if (!BOOT && summary[name] && summary[name].n > 50000){ BOOT = true; ownBoot = true; var bo = document.createElement("div"); bo.id = "boot"; bo.innerHTML = '<div class="bt-in"><div class="bt-t">T Ninja</div><div id="bootLab"></div><div class="bt-bar"><i id="bootFill"></i></div></div>'; document.body.appendChild(bo); }
     try {
@@ -7343,9 +7342,9 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     FSTASH = null; fillSelectors(); aliasRefresh(); renderAll(); status('Alias renombrado: "'+nw+'"');
     aliasRenameCache(oF, nF).catch(function(e){ console.error(e); }); } // lo guardado en el disco pasa al nombre nuevo sin hacer esperar
   async function aliasRenameCache(oF, nF){ if (!cdb) return; var rep = function(s){ return typeof s === "string" ? s.split(oF).join(nF) : s; };
-    for (var pre of ["snap|"+oF+"|", "res|"+oF+"|"]){ var range = IDBKeyRange.bound(pre, pre+"\uffff"), tx = cdb.transaction("kv"), os = tx.objectStore("kv"), keys = await req(os.getAllKeys(range)), vals = await req(os.getAll(range));
+    for (var pre of ["snap|"+oF+"|", "res|"+oF+"|", "lsx|"+oF+"|"]){ var range = IDBKeyRange.bound(pre, pre+"\uffff"), tx = cdb.transaction("kv"), os = tx.objectStore("kv"), keys = await req(os.getAllKeys(range)), vals = await req(os.getAll(range));
       var tx2 = cdb.transaction("kv", "readwrite"), o2 = tx2.objectStore("kv");
-      keys.forEach(function(k, i){ var v = vals[i], nk = (pre[0] === "s" ? "snap|" : "res|") + nF + "|" + rep(k.slice(pre.length));
+      keys.forEach(function(k, i){ var v = vals[i], nk = pre.split("|")[0] + "|" + nF + "|" + rep(k.slice(pre.length));
         if (v && typeof v === "object" && !ArrayBuffer.isView(v)){ if (v.sig) v.sig = rep(v.sig); if (Array.isArray(v.strs)) v.strs = v.strs.map(function(s){ return s === oF ? nF : s; }); }
         o2.put(v, nk); o2.delete(k); });
       await txDone(tx2); } }
@@ -8525,6 +8524,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   function lsDetail(R, line, lab){
     var gk = lsSel.gk, P = gk.split("|"), isZ = /^Z/.test(P[0]), act = LineStats.actOf(line), facing = /^(F|C|R|3B)$/.test(act);
     var tabs = [["rango","Rango"],["boards","Boards"],["tam","Tamaño"],["bxt","Board × tamaño"],["ded","Deducción"]]; if (lsDT === "manos" || lsDT === "rxt") lsDT = "rango";
+    var rivB = act === "B" && line.split("-").length === 3; if (rivB) tabs.push(["pagar","Con qué pagar"]); else if (lsDT === "pagar") lsDT = "rango"; // bet de river: con qué manos pagarle
     if (CMPB){ tabs = [["rango","Rango"]]; lsDT = "rango"; }
     lsHandBox = "";
     var tb = '<div style="display:flex;flex-wrap:wrap;gap:0;padding:4px 4px 0;border-bottom:1px solid var(--line)">'+tabs.map(function(t){ return '<button class="tab" style="white-space:nowrap;padding-left:7px;padding-right:7px" data-lsdt="'+t[0]+'" aria-selected="'+(lsDT===t[0])+'">'+t[1]+'</button>'; }).join("")+'</div>';
@@ -8619,6 +8619,16 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
             + used.map(function(c){ var ci = COLS4.indexOf(c); return '<tr><td>'+esc(c[1])+'</td>'+rows4.map(function(r){ var v = r.c[ci], pc = r.k ? 100*v/r.k : 0, lv = nLvl(r.k), hk = "g|"+r.i+"|"+(lsRxMode === "c" ? "c" : "g")+"|"+c[0];
                 return v ? '<td class="num" data-lsh="'+esc(hk)+'" style="cursor:pointer;background:rgba(242,107,91,'+(lv === 0 ? 0.08 : Math.min(0.6, pc/100*0.9+0.05)).toFixed(2)+');'+(lv===0?'color:var(--muted);':'')+hsel(hk)+'"><b>'+Math.round(pc)+'%</b> '+nnSp(v)+'</td>' : '<td class="num" style="color:var(--muted)">·</td>'; }).join("")+'</tr>'; }).join("")+'</tbody></table>'
             + '<p class="small" style="padding:6px 10px">Cada columna suma 100%: de las hands que se vieron con ese tamaño, qué parte era de cada grupo. "Hands" es cuántas se vieron con ese tamaño; solo se conoce la mano cuando llegó al showdown. Tocá un casillero para ver esas manos.</p>'); }
+    } else if (lsDT === "pagar"){
+      var LP = getScan(true); if (!LP) body = noScan; else if (LP === "wait") body = msg("Calculando…");
+      else { var cols = PG_SZ.map(function(){ return {n:0, c:{}}; }), all = {n:0, c:{}};
+        LP.forEach(function(d){ if (d.st !== 3 || d.tok !== "B" || !d.cat || !(d.own > 0) || !seenNF(d)) return; var c = d.cat === "pf" ? "nmh" : d.cat; [cols[pgBin(d.own)], all].forEach(function(o){ o.n++; o.c[c] = (o.c[c] || 0) + 1; }); });
+        if (!all.n) body = msg("Todavía no hay manos mostradas en el showdown después de este bet de river.");
+        else { var used = PG_SZ.map(function(z, i){ return i; }).filter(function(i){ return cols[i].n > 0; }), mid = (function(){ var tt = 0, sw = 0; cols.forEach(function(c, i){ tt += c.n * PG_SZ[i]; sw += c.n; }); return tt / Math.max(1, sw) / 100; })();
+          var cell = function(v, n){ if (v == null || n < 15) return '<td style="background:#2b2e33;text-align:center;font-size:11px;color:#6b7280">'+(v == null ? '' : f1(v, 0))+'</td>'; var bg = v < 0 ? '#e0566a' : v < 5 ? '#b9b0f7' : '#7b5cf0'; return '<td title="EV '+f1(v, 1)+'% del bote · '+fmtN(n)+' manos" style="background:'+bg+';text-align:center;font-size:11px;color:'+(v < 5 && v >= 0 ? '#1a1530' : '#fff')+'">'+f1(v, 0)+'</td>'; };
+          body = '<div style="padding:8px 10px;overflow:auto"><table class="ls hon" style="width:auto"><thead><tr><th style="text-align:left">Tu mano</th><th>Gral<br><span class="small">'+fmtN(all.n)+'</span></th>'+used.map(function(i){ return '<th>'+PG_SZ[i]+'%<br><span class="small">'+fmtN(cols[i].n)+'</span></th>'; }).join("")+'</tr></thead><tbody>'
+            + PG_ORD.map(function(hc){ return '<tr><td style="text-align:left;white-space:nowrap">'+esc(BBB.LBL[hc] || hc)+'</td>'+cell(pgEv(all, hc, mid), all.n)+used.map(function(i){ return cell(pgEv(cols[i], hc, PG_SZ[i] / 100), cols[i].n); }).join("")+'</tr>'; }).join("")+'</tbody></table>'
+            + '<div class="small" style="margin-top:8px;line-height:1.6"><b style="color:#7b5cf0">■</b> Call · <b style="color:#b9b0f7">■</b> Call marginal (EV entre 0 y 5% del bote) · <b style="color:#e0566a">■</b> Fold. El número es el EV del call en % del bote; columnas por tamaño de su bet. Sale de las manos que mostró en el showdown después de este bet de river. En gris, con menos de 15 manos.</div></div>'; } }
     } else if (lsDT === "ded"){
       var L5 = getScan(true); if (!L5) body = noScan; else if (L5 === "wait") body = msg("Calculando…");
       else { var D5 = dedLine(L5, facing, line.split("-").length, act);
@@ -8792,10 +8802,20 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   // una sola pasada con todas las decisiones postflop del jugador, agrupadas por situación; el detalle de cada línea sale de acá al instante
   var LSIDX = {};
   function lsIdx(){ var k = player; if (!LSIDX[k]){ LSIDX[k] = "wait"; setTimeout(function(){ var by = {}; try { var t = {all:true, out:[]}; LineStats.build(db, player, null, null, t); t.out.forEach(function(d){ (by[d.ctx] = by[d.ctx] || []).push(d); }); } catch(e){ console.error(e); } LSIDX[k] = by; renderMain(); }, 20); } return LSIDX[k]; }
-  function lsScanGet(ctx){ var k = player+"|"+ctx; if (lsScan[k] && lsScan[k] !== "wait") return lsScan[k]; var I = lsIdx(); if (I === "wait") return "wait"; return lsScan[k] = lsCompact(I[ctx] || []); }
+  // detalle de cada estadística: se arma una sola vez (al preparar los análisis) y queda guardado por situación; al tocar una celda se lee solo esa situación
+  var LSXD = {}, LSXP = {}, lsxRT = null;
+  function lsxOk(){ var r = LSXD[player]; return !!(r && r.done); }
+  function lsxFetch(ctx){ var k = player+"|"+ctx; if (LSXP[k]) return; LSXP[k] = 1; var nm = player;
+    kvGet("lsx|"+nm+"|"+ctx).then(function(r){ var ok = r && r.sig === dataSig(nm) && r.ver === resVer("lsxd"); if (nm !== player) return; lsScan[k] = ok ? r.c : []; S2D[k] = ok ? r.s : []; if (!ok) LSXD[player] = null; clearTimeout(lsxRT); lsxRT = setTimeout(renderMain, 15); }, function(){ lsScan[k] = []; S2D[k] = []; renderMain(); }); }
+  async function lsxBuild(){ if (!cdb || lsxOk()) return; var nm = player, sig = dataSig(nm), ver = resVer("lsxd"), t = {all:true, out:[]}; LineStats.build(db, nm, null, null, t); var by = {}; t.out.forEach(function(d){ (by[d.ctx] = by[d.ctx] || []).push(d); }); t = null;
+    var keys = Object.keys(by); for (var a = 0; a < keys.length; a += 60){ var tx = cdb.transaction("kv", "readwrite"), os = tx.objectStore("kv");
+      keys.slice(a, a + 60).forEach(function(ctx){ var L = by[ctx]; os.put({sig:sig, ver:ver, c:lsCompact(L), s:L.map(function(d){ return {i:d.i, tok:d.tok, stk:d.stk, st:d.st, k:(d.ctx.split("|")[2].match(/3B|DB|[XBCFR]/g) || []).length}; })}, "lsx|"+nm+"|"+ctx); delete by[ctx]; }); await txDone(tx); }
+    LSXD[nm] = keepRes("lsxd", nm, {done:1, n:keys.length}); }
+  function lsScanGet(ctx){ var k = player+"|"+ctx; if (lsScan[k] && lsScan[k] !== "wait") return lsScan[k]; if (lsxOk()){ lsxFetch(ctx); return "wait"; } var I = lsIdx(); if (I === "wait") return "wait"; return lsScan[k] = lsCompact(I[ctx] || []); }
   function s2Data(){ var k = player; if (!S2D[k]){ var I0 = lsIdx(); if (I0 === "wait") return "wait"; S2D[k] = "wait"; setTimeout(function(){ try { var t = {out:[]}; for (var c0 in I0) I0[c0].forEach(function(d){ t.out.push(d); }); var by = {}; t.out.forEach(function(d){ (by[d.ctx] = by[d.ctx] || []).push({i:d.i, tok:d.tok, stk:d.stk, st:d.st, k:(d.ctx.split("|")[2].match(/3B|DB|[XBCFR]/g) || []).length}); }); S2D[k] = by; } catch(e){ console.error(e); S2D[k] = {}; } renderMain(); }, 30); } return S2D[k]; }
-  function s2Res(R, line){ var D = s2Data(); if (D === "wait") return "wait"; var v = LineStats.value(R, SCE(), lsKey(), line); if (!v || !v.gk) return null; var g = v.gk.split("|"); if (g.length !== 6) return null;
-    var ctx = g.slice(1, 5).join("|"), tok = g[5], L = (D[ctx] || []).filter(function(d){ return (d.tok === tok || (tok === "R" && d.tok === "3B")) && (lsStk === "T" || d.stk === lsStk); }); if (!L.length) return null;
+  function s2Res(R, line){ var v = LineStats.value(R, SCE(), lsKey(), line); if (!v || !v.gk) return null; var g = v.gk.split("|"); if (g.length !== 6) return null; var ctx = g.slice(1, 5).join("|"), D;
+    if (lsxOk()){ var sk = player+"|"+ctx; if (!S2D[sk]){ lsxFetch(ctx); return "wait"; } D = {}; D[ctx] = S2D[sk]; } else { D = s2Data(); if (D === "wait") return "wait"; }
+    var tok = g[5], L = (D[ctx] || []).filter(function(d){ return (d.tok === tok || (tok === "R" && d.tok === "3B")) && (lsStk === "T" || d.stk === lsStk); }); if (!L.length) return null;
     var net = 0, sd = 0, won = 0, vf = 0; L.forEach(function(d){ var h = db.hands[d.i], P = h.idx[player], me = h.players[P]; net += me.net / h.bb; if (h.showdown && !me.folded){ sd++; if (me.net > 0) won++; }
       // lo que ya había puesto antes de esta decisión: es lo que perdería si foldeara acá
       var inv = 0, seen = 0; for (var q = 0; q < h.actions.length; q++){ var a = h.actions[q]; if (a.player !== P) continue; if (a.street === d.st && !/^P/.test(a.kind)){ if (seen === d.k) break; seen++; } inv += a.amount || 0; }
@@ -11277,7 +11297,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   })();
   // dibuja de antemano todas las pestañas (detrás de la pantalla de carga): después cambiar de pestaña es instantáneo
   async function warmViews(){ if (!db || !player || !db.hands || !db.hands.length) return; var v0 = view, isHero = !CFG.hero || player === CFG.hero;
-    var L = ["resumen","graf","grafg","suerte","manos","buscar","stats","sit","mes","jugadores","linestats","deduce","deduce2","comparar2","pagar","p45","estrat","erec"].filter(function(v){ return VIEWS[v] && v !== v0 && (isHero || !MYV[v]); });
+    var L = ["resumen","graf","grafg","suerte","manos","buscar","stats","sit","mes","jugadores","linestats","deduce","deduce2","comparar2","p45","estrat","erec"].filter(function(v){ return VIEWS[v] && v !== v0 && (isHero || !MYV[v]); });
     L.push(v0); RSEEN = RSEEN || {};
     for (var i = 0; i < L.length; i++){ var v = L[i]; bootSet("Preparando las pantallas ("+(i+1)+" de "+L.length+")…", 0.9 + 0.1*i/L.length); await tick();
       RSEEN[player+"|"+v] = 1; view = v; try { renderAll(); } catch(e){ console.error(e); }
