@@ -1,1 +1,1 @@
-{"v": 442, "sha256": "c6129a6743617f4188217235c7e15f2486d82b213f5b1b1332ab769d3f0abfde", "notes": "Alias en columna: cada alias arriba y sus nicks abajo, con Sacar y Agregar. Arriba de la ventana se ve la versión.", "shell": 1}
+{"v": 443, "sha256": "9bd4a1afb47f2d25fc868d34053743f5f26354232d9a8051f88f1274a99e9fd2", "notes": "Pantalla de carga al abrir: cuando aparece el programa ya está todo listo y cambiar de pestaña es instantáneo. Barra de progreso en vez de carteles. Se sacaron cálculos de cosas que ya no existen (fugas).", "shell": 1}

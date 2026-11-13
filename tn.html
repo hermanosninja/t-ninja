@@ -122,6 +122,8 @@ textarea{width:100%;height:100%;min-height:120px;resize:none;border:1px solid va
 .status{grid-column:1/-1;grid-row:3;background:#080c10;color:var(--chrome-mute);border-top:1px solid var(--line);display:flex;align-items:center;gap:18px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));font-size:13px;white-space:nowrap;overflow:hidden}
 .card{display:inline-flex;align-items:center;justify-content:center;width:22px;height:26px;border-radius:3px;color:#fff;font-weight:700;font-size:13px;margin-right:2px;vertical-align:middle}
 .cc{background:var(--c-c)} .cd{background:var(--c-d)} .ch{background:var(--c-h)} .cs{background:var(--c-s)}
+#boot{position:fixed;inset:0;z-index:99999;background:#0f1318;display:flex;align-items:center;justify-content:center} #boot .bt-in{width:440px;max-width:90vw;color:#c9ced6;font-size:14px} #boot .bt-t{font-size:26px;font-weight:700;color:#fff;margin-bottom:14px} #boot .bt-bar{height:8px;background:#232a33;border-radius:4px;margin-top:12px;overflow:hidden} #boot i{display:block;height:100%;width:2%;background:#8b7cf6;transition:width .3s}
+.prepbar{position:fixed;right:16px;bottom:30px;width:380px;background:var(--panel,#151a21);border:1px solid var(--line,#2a2f36);border-radius:8px;padding:8px 12px;z-index:30;font-size:12.5px;color:var(--text,#e5e7eb);box-shadow:0 4px 18px rgba(0,0,0,.35)} .prepbar div{height:6px;background:#2a3140;border-radius:3px;margin-top:6px;overflow:hidden} .prepbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
 .busy{position:fixed;top:76px;left:50%;transform:translateX(-50%);background:var(--accent);color:#06140b;padding:10px 18px;border-radius:8px;font-weight:700;z-index:30;box-shadow:0 4px 18px rgba(0,0,0,.3)}
 .rp-back{display:inline-block;width:22px;height:26px;border-radius:3px;margin-right:2px;vertical-align:middle;background:repeating-linear-gradient(45deg,#8a2a2a,#8a2a2a 3px,#a33 3px,#a33 6px);border:1px solid #fff}
 .cardx{display:inline-block;width:22px;height:26px;border-radius:3px;border:1px dashed var(--line);margin-right:2px;vertical-align:middle}
@@ -642,6 +644,7 @@ td.ls-l, .ls-l, code{font-family:var(--f-mono)}
   .sz-leg{display:flex;gap:12px;font-size:11.5px;color:#a3abb8;margin:4px 0 6px} .sz-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 </style>
 
+<div id="boot"><div class="bt-in"><div class="bt-t">T Ninja</div><div id="bootLab">Abriendo…</div><div class="bt-bar"><i id="bootFill"></i></div></div></div>
 <div class="app" id="app">
   <header class="top">
     <div class="brand">T Ninja</div>
@@ -4703,7 +4706,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   function isAlias(n){ return typeof n === "string" && n.indexOf(ALIAS_PFX) === 0; }
   function aliasMembers(n){ var A = aliasAll(), k = isAlias(n) ? n.slice(ALIAS_PFX.length) : n; return (A[k] || []).filter(function(m){ return summary[m] && !summary[m]._alias; }); }
   function sumInto(a, b){ Object.keys(b).forEach(function(k){ var v = b[k]; if (k === "name" || k.charAt(0) === "_") return; if (typeof v === "number") a[k] = (a[k] || 0) + v; else if (v && v.length != null && typeof v !== "string"){ if (!a[k] || a[k].length !== v.length) a[k] = new (v.constructor)(v.length); for (var i = 0; i < v.length; i++) a[k][i] += v[i]; } else if (a[k] == null) a[k] = v; }); }
-  function buildAliasSummaries(){ Object.keys(summary).forEach(function(k){ if (summary[k] && summary[k]._alias) delete summary[k]; }); var A = aliasAll();
+  function buildAliasSummaries(){ if (typeof vBump === "function") vBump(); Object.keys(summary).forEach(function(k){ if (summary[k] && summary[k]._alias) delete summary[k]; }); var A = aliasAll();
     Object.keys(A).forEach(function(nm){ var id = ALIAS_PFX + nm, mem = aliasMembers(id); if (!mem.length) return; var r = { name: id, _alias: 1, members: mem }; mem.forEach(function(m){ sumInto(r, summary[m]); }); summary[id] = r; }); }
   function load(k,d){ try{ var v = localStorage.getItem("trk_"+k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
   view = load("view","resumen"); if (view === "planilla" || view === "estrategia" || view === "lineas") view = "linestats";
@@ -4856,15 +4859,12 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     ["Reportes", function(){ var f0 = filt; filt = {}; try { repCalc(); } finally { filt = f0; } }, function(){ return !!cache["rep"+repBy+"{}"+player+(CFG.mesCols||["vpip","pfr","3b"]).join()]; }],
     ["Estrategias", function(){ jgBuild(player); }, function(){ return !!jgIdxC[player + "|" + db.hands.length]; }],
     ["Rival y Estadísticas", function(){ var f0 = filt; filt = {}; try { vResumen(); vStats(); vSit(); } finally { filt = f0; } }, function(){ return !!aggMemo[player+"|{}"] && !!aggMemo[player+"|"+JSON.stringify({positions:["BB"]})]; }],
-    ["Resumen del resumen", function(){ sumGet(); }, function(){ return !!sumRes[player]; }],
     ["Tablas bet | check", function(){ var l0 = bbbLine, p0 = bbbPot; Object.keys(BBB.LINES).forEach(function(l){ ["srp","3bp"].forEach(function(p){ bbbLine = l; bbbPot = p; bbbGet(); }); }); bbbLine = l0; bbbPot = p0; }, function(){ return !!bbbRes[player+"|agr|srp"] && !!bbbRes[player+"|float|3bp"]; }],
     ["Análisis c-bet flop", function(){ ["ip","oop"].forEach(function(p){ var k = player+"|"+p; if (!cbfRes[k]) cbfRes[k] = keepRes("cbfRes", k, CBFlop.analyze(db, player, p)); var c = player+"|cont|"+p; if (!cbfRes[c]) cbfRes[c] = keepRes("cbfRes", c, CBFlop.cont(db, player, p)); }); }, function(){ return !!(cbfRes[player+"|ip"] && cbfRes[player+"|oop"] && cbfRes[player+"|cont|ip"] && cbfRes[player+"|cont|oop"]); }],
     ["Tells de la apuesta", function(){ digRes[player] = keepRes("digRes", player, Digits.analyze(db, player)); }, function(){ return !!digRes[player]; }],
     ["Rangos preflop", function(){ pfrRes[player] = keepRes("pfrRes", player, PFRanges.build(db, player, window.FN_RANGES, db.rt || null)); }, function(){ return !!pfrRes[player]; }],
     ["Selección de mesas", function(){ bhRes[player] = keepRes("bhRes", player, Bumhunt.analyze(db, player, bhStats)); }, function(){ return !!bhRes[player]; }],
     ["Deducción (situaciones)", function(){ var k = player+"|srp"; ded[k] = keepRes("ded", k, Deduce.build(db, player, {pot:"srp"})); }, function(){ return !!ded[player+"|srp"]; }],
-    ["Grupo de referencia", function(){ grpCalc(); }, function(){ var K = grpKey(); return !K.G.length || !!grpRes[K.key]; }],
-    ["Rival: fugas", function(){ reports[player] = keepRes("reports", player, Analysis.analyze(db, player)); }, function(){ return !!reports[player]; }],
   ];
   var prepping = false;
   function prepMissing(){ return db && player && db.hands.length ? PREP.filter(function(p){ return !p[2](); }) : []; }
@@ -4878,16 +4878,18 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   var SNAPP = null;
   async function prepAll(){
     if (prepping) return; if (SNAPP){ try { await SNAPP; } catch(e){} SNAPP = null; } prepping = true; prepBtnUpdate(); var miss = prepMissing(), t0 = Date.now(), me = player, d0 = db;
-    var ov = document.createElement("div"); ov.className = "busy"; document.body.appendChild(ov);
+    // barrita abajo con lo que se está preparando: no tapa el programa
+    var bar = document.createElement("div"); bar.className = "prepbar"; bar.innerHTML = '<span></span><div><i></i></div>'; document.body.appendChild(bar);
+    var lab = bar.firstChild, fill = bar.querySelector("i"), ov = { set textContent(v){ lab.textContent = v; bootSet(v, null); }, get textContent(){ return lab.textContent; } };
     try {
       for (var i = 0; i < miss.length; i++){
         if (player !== me || db !== d0) break;
-        ov.textContent = "Preparando análisis ("+(i+1)+" de "+miss.length+"): "+miss[i][0]+"… se hace una sola vez"; status(ov.textContent); await tick(); await new Promise(function(r){ setTimeout(r, 30); });
+        lab.textContent = "Preparando análisis ("+(i+1)+" de "+miss.length+"): "+miss[i][0]+"…"; fill.style.width = Math.round(100*(i+0.3)/miss.length)+"%"; bootSet(lab.textContent, 0.1 + 0.75*i/miss.length); status(lab.textContent); await tick(); await new Promise(function(r){ setTimeout(r, 30); });
         try { var rr = miss[i][1](ov); if (rr && rr.then) await rr; } catch(e){ console.error(e); }
         if (miss[i][0]==="Gráficos") saveEv(me, d0);
       }
       await saveQ; status("Listo · análisis preparados y guardados en "+Math.round((Date.now()-t0)/1000)+" s: ahora cada pestaña abre al instante");
-    } finally { ov.remove(); prepping = false; prepBtnUpdate(); }
+    } finally { bar.remove(); prepping = false; prepBtnUpdate(); }
     renderMain();
   }
   function recentDb(){ return db; if (!db || !db.store || db.hands.length <= RECENT) return db; var n = db.hands.length, off = n - RECENT, base = db;
@@ -6612,7 +6614,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   (function(){ if (CFG.rtDef && typeof Analysis !== "undefined") for (var k in CFG.rtDef) Analysis.RTC[k] = CFG.rtDef[k]; })();
   // el jugador principal es de cada base de datos (en otra base puede ser otro alias)
   (function(){ var hb = load("hero" + DBSFX, undefined); if (hb !== undefined) CFG.hero = hb; else if (DBID !== "main" && DBID !== "mis") CFG.hero = null; })();
-  function saveCfg(){ store("hero" + DBSFX, CFG.hero || null); store("cfg", CFG); }
+  function saveCfg(){ store("hero" + DBSFX, CFG.hero || null); store("cfg", CFG); if (typeof vBump === "function") vBump(); }
   function nnHide(n){ return CFG.hideN > 0 && n >= CFG.hideN; }
   function nnS(n){ return nnHide(n) ? '' : '<span class="nn">'+n+'</span>'; }
   function nnSp(n){ return nnHide(n) ? '' : '<span class="small">'+fmtN(n)+'</span>'; }
@@ -6705,7 +6707,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       var recs = await req(idb.transaction("hands").objectStore("hands").getAll(range, 4000)); if (!recs.length) break;
       var H = recs.map(function(r){ return restore(r); }); try { lsaAdd(H); } catch(e){ console.error(e); }
       lastKey = recs[recs.length-1].id; n += recs.length; recs = null; H = null;
-      if (ov) ov.textContent = "Preparando las líneas de todos los jugadores (HUD): "+fmtN(n)+" de "+fmtN(total)+" manos… se hace una sola vez"; await tick(); }
+      if (ov) ov.textContent = "Preparando las líneas de todos los jugadores (HUD): "+fmtN(n)+" de "+fmtN(total)+" manos…"; await tick(); }
     lsaReady = true; await lsaSave(); }
   function lsaVal(name, id){ var R = LSA[name]; if (!R) return {v:null, n:0}; var q = id.slice(3).split("|"), sc = q[0], line = q[1]; var v = LineStats.value(R, sc, "T", line); return v && v.n ? {v:v.v, n:v.n} : {v:null, n:0}; }
   // deja en la base solo las manos que están cargadas ahora (la muestra del modo prueba) y borra el resto
@@ -6734,7 +6736,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
             if (!recs.length) break;
             for (var i = 0; i < recs.length; i++){ var h = restore(recs[i]); try { Engine.summaryAdd(S, h, Engine.handFacts(0, h)); } catch(e){} }
             lastKey = recs[recs.length-1].id; n += recs.length; recs = null;
-            if (ov) ov.textContent = "Preparando las estadísticas de todos los jugadores (HUD): "+fmtN(n)+" de "+fmtN(total)+" manos… se hace una sola vez";
+            if (ov) ov.textContent = "Preparando las estadísticas de todos los jugadores (HUD): "+fmtN(n)+" de "+fmtN(total)+" manos…";
             await tick();
           }
           res();
@@ -7172,10 +7174,6 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     var ev = evInfo(), ses = sessions(), S = ses[ses.length-1], sk = S ? S.idx.reduce(function(o, i){ var h = db.hands[i], me = h.players[h.idx[player]]; o.n++; o.net += me.net; o.bb += me.net / h.bb; return o; }, {n:0, net:0, bb:0}) : null;
     var gr = deferChart(lineChart, [[{data:ev.real, color:gst("real").c, w:gst("real").w, dash:gst("real").d}, {data:ev.ev, color:gst("ev").c, w:gst("ev").w, dash:gst("ev").d}], {label:"Ganancia", axisR:true, ticks:5}]);
     var last = S ? '<div class="kv"><span class="h">Fecha</span><b>'+dstr(S.k, true)+'</b><span class="h">Manos</span><b>'+fmtN(sk.n)+'</b><span class="h">Ganancia</span><b class="'+cls(sk.net)+'">'+money(sk.net)+'</b><span class="h">bb/100</span><b class="'+cls(sk.bb)+'">'+f1(sk.n ? 100*sk.bb/sk.n : 0, 1)+'</b><span class="h">Duración</span><b>'+Math.max(1, Math.round((S.end - S.start)/60))+' min</b></div><button class="btn" data-gov="manos" style="margin-top:10px">Ver la sesión</button>' : '<p class="small">Sin sesiones.</p>';
-    var r = reports[player], fx = '';
-    if (r){ var sec = r.sections.filter(function(x){ return x.id === "precios"; })[0] || r.sections[0], it = (sec && sec.items || []).slice(0, 3);
-      fx = it.length ? it.map(function(x){ return '<div class="rs-fx">'+itemHtml(x)+'</div>'; }).join("") + '<button class="btn" data-gov="misfugas" style="margin-top:8px">Ver todas</button>' : '<p class="small">No se encontraron fugas claras con esta muestra.</p>'; }
-    else fx = '<p class="small" style="margin-top:0">Todavía no se calcularon. Se calculan una vez con todas tus manos.</p><button class="btn acc" data-gov="misfugas">Calcular mis fugas</button>';
     return '<div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(250px,1fr);gap:10px;min-height:0">'
       + '<section class="box"><h2>Resultados <span><button class="btn" data-gov="graf">Abrir</button></span></h2><div class="bd" style="overflow:hidden">'+gr+'</div></section>'
       + '<section class="box"><h2>Última sesión</h2><div class="bd">'+last+'</div></section>'
@@ -7866,7 +7864,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       renderMain(); };
     setTimeout(step, 30); }
   function heavyGuard(){ if (!heavyNeed()) return ''; heavyStart();
-    return '<section class="box" style="max-width:560px;margin:30px auto"><div class="bd" style="text-align:center;padding:30px"><div style="font-size:17px;font-weight:700;margin-bottom:8px">Calculando las estadísticas de '+esc(player)+'…</div><div id="hvProg" class="small">'+(HV ? "Revisadas "+fmtN(HV.i)+" de las "+fmtN(HV.n)+" manos de la base" : "")+'</div><div class="small" style="margin-top:4px">Base: '+(DBSEL === "mis" ? "Mis manos" : "General")+' ('+fmtN(db.hands.length)+' manos)</div><div class="small" style="margin-top:10px">Se hace una sola vez y queda guardado. Mientras tanto podés usar las otras secciones.</div></div></section>'; }
+    return '<section class="box" style="max-width:560px;margin:30px auto"><div class="bd" style="text-align:center;padding:30px"><div style="font-size:17px;font-weight:700;margin-bottom:8px">Calculando las estadísticas de '+esc(player)+'…</div><div id="hvProg" class="small">'+(HV ? "Revisadas "+fmtN(HV.i)+" de las "+fmtN(HV.n)+" manos de la base" : "")+'</div><div class="small" style="margin-top:4px">Base: '+(DBSEL === "mis" ? "Mis manos" : "General")+' ('+fmtN(db.hands.length)+' manos)</div><div class="small" style="margin-top:10px">Mientras tanto podés usar las otras secciones.</div></div></section>'; }
   function whoLbl(){ if (!MAS()) return player; return "Estudio de población · "+masProf().name+" · "+masMinH+"+ manos"; }
   var lsMas = null, masGrp = null, masMinH = 500, masKey = null, masBusy = false;
   function stFk(){ if (view !== "stats" || !filt) return ""; var f = {}; Object.keys(filt).forEach(function(k){ if (k.charAt(0) !== "_" && filt[k] != null) f[k] = filt[k]; }); var k = JSON.stringify(f); return k === "{}" ? "" : k; }
@@ -11111,7 +11109,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   var _rpc = 0; function limBadgeUpd(){ if (!_rpc && meta && meta.hands){ _rpc = 1; reprocCheck(); } var b = $("limBadge"); if (!b) return; var on = CFG.lim > 0 && db && db.hands && summary[player] && summary[player].n > db.hands.length; b.hidden = !on; if (on) b.textContent = "Modo prueba: "+fmtN(db.hands.length)+" de "+fmtN(summary[player].n)+" manos"; b.onclick = function(){ cfgSub = "base"; if (typeof cfgTab !== "undefined") cfgTab = "gen"; var r = document.querySelector('#rail button[data-v="config"]'); if (r) r.click(); }; }
   function renderMain(){ try { limBadgeUpd(); } catch(e){} if (!selLoaded){ selLoaded = true; try { selLoad(); } catch(e){} } try { selSave(); } catch(e){}
     setTimeout(function(){ prepBtnUpdate(); if (db && db._ev && !db._evSaved && db.hands.length > 20000 && player){ db._evSaved = true; saveEv(player, db); } }, 0);
-    var m = $("main");
+    var m = $("main"); if (m._view !== view) vStash(m); else m._vkey = null;
     var SETV = {crearstats:1, crearhud:1, crearpop:1, config:1}, isSet = !!SETV[view];
     if (IDB_ERR && !isSet){ m.innerHTML = '<div class="empty"><h2>No se pudo abrir la base de datos</h2><p>Tus manos no se borraron. Cerrá el programa y volvé a abrirlo. Si sigue igual, reiniciá la computadora.</p><p class="small">Detalle: '+esc(IDB_ERR)+'</p></div>'; return; }
     if (!meta.hands && !isSet){ m.innerHTML = '<div class="empty"><h2>Importá tus historiales de manos</h2><p>Arrastrá a esta ventana archivos .txt, .zip o .rar de 888poker, PokerStars, partypoker, Winamax, iPoker, red Chico, Winning Poker Network, Run It Once, CoinPoker o PokerBros, de cualquier jugador (vos o un rival), o tocá "Importar manos" arriba a la derecha. Las manos de torneo se descartan solas. Se procesan en tu navegador y quedan guardadas acá; no se suben a ningún lado.</p><button class="btn acc" id="impBtn2">Importar manos</button></div>'; $("impBtn2").onclick = function(){ $("file").click(); }; return; }
@@ -11121,6 +11119,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       $("heroOk").onclick = function(){ var v = $("heroIn").value.trim(); if (!summary[v] && summary[ALIAS_PFX + v.replace(/^★\s*/, "")]) v = ALIAS_PFX + v.replace(/^★\s*/, ""); if (!summary[v]){ $("heroMsg").textContent = "Ese nombre no está en la base."; return; } CFG.hero = v; saveCfg(); setPlayer(v); }; return; }
     if (!player && !isSet){ m.innerHTML = '<div class="empty"><p>Elegí un jugador arriba.</p></div>'; return; }
     // conservar el scroll de la lista de la izquierda (y de las listas) al volver a dibujar la misma pestaña
+    if (m._view !== view && vRestore(m)) return;
     var keep = []; if (m._view === view) m.querySelectorAll(".bd, .sh-wrap, [data-ks]").forEach(function(el, i){ if (el.scrollTop || el.scrollLeft) keep.push([i, el.scrollTop, el.scrollLeft]); });
     var V = VIEWS[view] || VIEWS.resumen;
     if (studyPf && STUDY_V[view] && view !== "linestatsM" && view !== "masivo"){ var Pn = masProf(); m.innerHTML = '<div class="empty"><h2>Todavía no disponible para perfiles</h2><p>Esta pestaña por ahora funciona con un jugador. Para '+esc(Pn ? Pn.name : "un perfil")+' hay que calcular sobre las manos de muchos jugadores, y eso se agrega más adelante. Con perfiles ya funcionan Jugadores y Estadísticas.</p><button class="btn acc" data-stm="pl">Ver con un jugador</button></div>'; m._view = view; return; }
@@ -11128,10 +11127,10 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     if (db && db.hands && db.hands.length > 150000 && !m._busy && !RSEEN[seenK] && (view==="deduce"||view==="lineas"||view==="planilla"||view==="graf"||view==="stats"||view==="sit"||view==="resumen")){ RSEEN[seenK] = 1;
       m._busy = true; status("Calculando con "+fmtN(db.hands.length)+" manos… (la primera vez puede tardar hasta un minuto)"); 
       var ov = document.createElement("div"); ov.className = "busy"; ov.textContent = "Calculando con "+fmtN(db.hands.length)+" manos…"; m.appendChild(ov);
-      setTimeout(function(){ try { CHARTS = []; m.innerHTML = V[0](); if (V[1]) V[1](); drawCharts(); notesFix(m); restoreScroll(m, keep); m._view = view; } finally { m._busy = false; status("Listo · "+fmtN(meta.hands)+" manos en la base · jugador: "+player+(CFG.lim > 0 && db && db.hands ? " · modo prueba: "+fmtN(db.hands.length)+" manos" : "")); } }, 30);
+      setTimeout(function(){ try { CHARTS = []; m.innerHTML = V[0](); if (V[1]) V[1](); drawCharts(); notesFix(m); restoreScroll(m, keep); m._view = view; m._vkey = vKey(view); } finally { m._busy = false; status("Listo · "+fmtN(meta.hands)+" manos en la base · jugador: "+player+(CFG.lim > 0 && db && db.hands ? " · modo prueba: "+fmtN(db.hands.length)+" manos" : "")); } }, 30);
       return; }
     CHARTS = []; m.innerHTML = V[0](); if (V[1]) V[1](); drawCharts(); navMinFix(m); notesFix(m);
-    restoreScroll(m, keep); m._view = view;
+    restoreScroll(m, keep); m._view = view; m._vkey = vKey(view);
   }
   var RSEEN = null;
   function renderSide(){
@@ -11162,6 +11161,17 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     var c = $("clrDb"); if (c){ c.onclick = function(){ c.hidden = true; $("clrAsk").hidden = false; }; $("clrNo").onclick = function(){ $("clrAsk").hidden = true; c.hidden = false; };
       $("clrYes").onclick = async function(){ await clearIdb(); summary = {}; meta = { k:"meta", hands:0, files:0, dups:0, warn:0, errors:0, skipped:{}, hudV:2 }; db = new Engine.Db(); player = null; reports = {}; cache = {}; fillSelectors(); renderAll(); status("Base borrada"); }; }
   }
+  // pantalla de carga al abrir: el programa se muestra recién cuando está todo listo
+  var BOOT = true;
+  function bootSet(txt, frac){ if (!BOOT) return; var l = $("bootLab"), f = $("bootFill"); if (l && txt != null) l.textContent = txt; if (f && frac != null) f.style.width = Math.max(2, Math.min(100, Math.round(frac*100)))+"%"; }
+  function bootDone(){ BOOT = false; var b = $("boot"); if (b) b.remove(); }
+  // pestañas ya dibujadas: al volver a una pestaña se muestra la misma pantalla al instante (si nada cambió)
+  var VC = {}, VGEN = 0;
+  function vKey(v){ return v+"|"+VGEN+"|"+player+"|"+JSON.stringify(filt)+"|"+(db && db.hands ? db.hands.length : 0)+"|"+(studyPf ? 1 : 0)+"|"+(CFG.lang||""); }
+  function vBump(){ VGEN++; VC = {}; }
+  var VC_NO = /Calculando|Cargando|Preparando|Analizando|Todavía no se calcul/;
+  function vStash(m){ if (!m._view || !m._vkey || m._busy) return; var hold = document.createElement("div"); while (m.firstChild) hold.appendChild(m.firstChild); if (VC_NO.test(hold.textContent.slice(0, 3000))) return; VC[m._view] = {h:hold, k:m._vkey}; m._vkey = null; }
+  function vRestore(m){ var c = VC[view]; if (!c || c.k !== vKey(view)) return false; m.innerHTML = ""; while (c.h.firstChild) m.appendChild(c.h.firstChild); delete VC[view]; m._view = view; m._vkey = c.k; return true; }
   function renderAll(){
     var hv = view === "suerte" || view === "grafg" ? "graf" : view === "sit" ? "stats" : stBase(view); stModeUi(); document.querySelectorAll("#rail button").forEach(function(b){ b.setAttribute("aria-current", b.dataset.v===hv ? "true" : "false"); });
     renderSide(); renderMain();
@@ -11191,10 +11201,28 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   var rsT = null; window.addEventListener("resize", function(){ clearTimeout(rsT); rsT = setTimeout(function(){ if (meta.hands && player && (view==="sit"||view==="manos"||view==="graf")) renderMain(); }, 200); });
   renderAll();
   (async function(){
-    await openIdb(); await openCache(); try{ await loadSummary(); }catch(e){} try { await lsaLoad(); } catch(e){} if (!lsaReady && meta.hands && lsaSig()) setTimeout(async function(){ var t0 = Date.now(), o = {set textContent(v){ status(v); }}; try { await lsaRebuild(o); status("Listo · líneas de todos los jugadores preparadas en "+Math.round((Date.now()-t0)/1000)+" s"); } catch(e){ console.error(e); } }, 1500); $("prepBtn").addEventListener("click", prepAll);
-    if (meta.hands){ var pl = playersList(), saved = load("player" + DBSFX, null); await focus(saved && summary[saved] ? saved : (pl.length ? pl[0][0] : null)); setTimeout(heroAuto, 1500); }
+    try {
+    bootSet("Abriendo la base de datos…", 0.02);
+    await openIdb(); await openCache(); try{ await loadSummary(); }catch(e){} try { await lsaLoad(); } catch(e){} $("prepBtn").addEventListener("click", prepAll);
+    if (meta.hands){ var pl = playersList(), saved = load("player" + DBSFX, null), first = saved && summary[saved] ? saved : (pl.length ? pl[0][0] : null);
+      if (MYV[view] && CFG.hero && summary[CFG.hero]) first = CFG.hero;
+      bootSet("Cargando las manos de "+(first || "")+"…", 0.06); await focus(first);
+      // todo lo que falta se prepara ahora, con la barra de carga (una sola vez)
+      if (player && (!CFG.hero || player === CFG.hero) && prepMissing().length) await prepAll();
+      if (!lsaReady && lsaSig()){ var o = {set textContent(v){ bootSet(v, null); status(v); }}; try { await lsaRebuild(o); } catch(e){ console.error(e); } }
+      await warmViews();
+    }
+    } catch(e){ console.error(e); }
     if (/[?&]caida=/.test(location.search)) status("El programa se cerró por falta de memoria y se volvió a abrir solo. Tus manos están todas guardadas.");
     else { fillSelectors(); renderAll(); }
+    bootDone(); if (meta.hands) setTimeout(heroAuto, 800);
   })();
+  // dibuja de antemano todas las pestañas (detrás de la pantalla de carga): después cambiar de pestaña es instantáneo
+  async function warmViews(){ if (!db || !player || !db.hands || !db.hands.length) return; var v0 = view, isHero = !CFG.hero || player === CFG.hero;
+    var L = ["resumen","graf","manos","buscar","stats","mes","jugadores","linestats","deduce","deduce2","comparar2","pagar","p45","estrat","erec"].filter(function(v){ return VIEWS[v] && v !== v0 && (isHero || !MYV[v]); });
+    L.push(v0); RSEEN = RSEEN || {};
+    for (var i = 0; i < L.length; i++){ var v = L[i]; bootSet("Preparando las pantallas ("+(i+1)+" de "+L.length+")…", 0.9 + 0.1*i/L.length); await tick();
+      RSEEN[player+"|"+v] = 1; view = v; try { renderAll(); } catch(e){ console.error(e); } }
+    view = v0; }
 })();
 </script>
