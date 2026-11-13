@@ -1,1 +1,1 @@
-{"v": 441, "sha256": "9ba40b773aca693149c10a84c35d1edcc1d9d21adc97feda7594729d1d50d006", "notes": "Más rápido y usa menos memoria con bases grandes (2 millones de manos). El informe del grupo de referencia de Resumen queda guardado.", "shell": 1}
+{"v": 442, "sha256": "c6129a6743617f4188217235c7e15f2486d82b213f5b1b1332ab769d3f0abfde", "notes": "Alias en columna: cada alias arriba y sus nicks abajo, con Sacar y Agregar. Arriba de la ventana se ve la versión.", "shell": 1}
