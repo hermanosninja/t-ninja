@@ -750,7 +750,9 @@ var Engine = (function () {
   function parse888(text) {
     text = text.replace(/\r/g, "").replace(/\uFEFF/g, "").replace(/\u00EF\u00BB\u00BF/g, "");
     var out = [];
-    var blocks = text.split(/#Game No :|888poker Hand History for Game /).slice(1);
+    // las manos Snap (mesas rápidas) dicen "888poker Snap Poker Hand History": se leen igual y quedan marcadas
+    var parts = text.split(/(#Game No :|888poker (?:Snap Poker )?Hand History for Game )/), blocks = [], snapB = [];
+    for (var pi = 1; pi < parts.length; pi += 2){ blocks.push(parts[pi + 1] || ""); snapB.push(/Snap/.test(parts[pi])); }
     for (var bi = 0; bi < blocks.length; bi++) {
       var block = blocks[bi];
       var lines = block.split("\n");
@@ -826,7 +828,7 @@ var Engine = (function () {
       if (skip) { out.push({ status: "skip", id: id, why: skip }); continue; }
       if (!headerOk) { out.push({ status: "error", id: id, why: "sin encabezado" }); continue; }
       if (!raw.dealt) { out.push({ status: "skip", id: id, why: "no se repartieron cartas" }); continue; }
-      var res = finalize(raw);
+      var res = finalize(raw); if (snapB[bi]) res.ff = 1;
       if (res.error === "no hay ciega grande" || res.error === "menos de 2 jugadores con cartas") out.push({ status: "skip", id: id, why: "mano incompleta (" + res.error + ")" });
       else if (res.error) out.push({ status: "error", id: id, why: res.error }); else out.push({ status: "ok", hand: res });
     }
@@ -904,7 +906,7 @@ var Engine = (function () {
       if (raw.heroMark) raw.hero = raw.heroMark; // Run It Once muestra las cartas de todos; el héroe está marcado [hero]
       anonRename(raw, /^Anonym \d+$/);
       var res = finalize(raw);
-      if (res.warnings && /^PokerStars Zoom /.test(head)) res._zoom = true;
+      if (/^PokerStars Zoom /.test(head)){ res._zoom = true; res.ff = 1; } // Zoom: mesa rápida
       if (res.warnings && raw.phantom) res._rep = true; // se vuelve a guardar sin el jugador que no recibió cartas
       if (res.warnings && raw.cashout){ res.cashout = true; res.warnings = res.warnings.filter(function (w) { return w !== "se cobra mas que el bote" && w !== "rake mayor al 10%"; }); }
       if (res.warnings && /\| STP /.test(block)) res.warnings = res.warnings.filter(function (w) { return w !== "se cobra mas que el bote"; }); // Run It Once "Splash the pot": la sala agrega dinero al bote
@@ -1034,7 +1036,7 @@ var Engine = (function () {
       var withEv = {}; raw.events.forEach(function (e) { withEv[e.name] = 1; });
       raw.undealt = raw.undealt.filter(function (n) { return !withEv[n]; }); raw.seats.forEach(function (st) { if (!withEv[st.name] && raw.undealt.indexOf(st.name) < 0) raw.undealt.push(st.name); });
       if (raw.hmap || F.anon || F.anonSeat) { var hm = {}; if (raw.hmap) raw.seats.forEach(function (st) { if (F.anonSeat && F.anonSeat.test(st.name) && raw.hmap[st.seat]) hm[st.seat] = raw.hmap[st.seat]; }); anonRename(raw, F.anon || F.anonSeat, hm); }
-      var res = finalize(raw);
+      var res = finalize(raw); if (/fast ?forward|go fast|speed poker|snap poker|zoom|fast ?fold|rush/i.test(lines.slice(0, 3).join(" "))) res.ff = 1; // mesas rápidas de otras salas
       if (res.error === "no hay ciega grande" || res.error === "menos de 2 jugadores con cartas") out.push({ status: "skip", id: id, why: "mano incompleta (" + res.error + ")" });
       else if (res.error) out.push({ status: "error", id: id, why: res.error }); else out.push({ status: "ok", hand: res });
     }
@@ -1108,7 +1110,7 @@ var Engine = (function () {
   }
 
   function parseText(text) {
-    if (text.indexOf("Cassava Hand History") >= 0 || text.indexOf("888poker Hand History") >= 0) return parse888(text);
+    if (text.indexOf("Cassava Hand History") >= 0 || text.indexOf("888poker Hand History") >= 0 || text.indexOf("888poker Snap Poker Hand History") >= 0) return parse888(text);
     if (/(?:PokerStars|TigerGaming|BetOnline|SportsBetting|Sportsbetting|CoinPoker|PokerBros|Run It Once Poker)(?: Zoom| Home Game)? (?:Hand|Game) #/.test(text)) {
       if (/Tournament #/.test(text) && !/PokerStars (Hand|Game) #\d+:\s+Hold'em/.test(text)) return [{ status: "skip", id: "-", why: "archivos de torneo (PokerStars)" }];
       return parsePS(text);
@@ -1307,10 +1309,10 @@ var Engine = (function () {
     if (filt.minPlayers && f.nPlayers < filt.minPlayers) return false;
     if (filt.maxPlayers && f.nPlayers > filt.maxPlayers) return false;
     if (filt.vs && h.idx[filt.vs] == null) return false;
-    if (filt.bb && h.bb !== filt.bb) return false;
+    if (filt.bb && (h.ff ? -h.bb : h.bb) !== filt.bb) return false;
     if (filt.year && String(h.timeKey).slice(0, 4) !== filt.year) return false;
     if (filt.rtype && h._rt !== filt.rtype) return false;
-    if (filt.bbs && filt.bbs.indexOf(h.bb) < 0) return false;
+    if (filt.bbs && filt.bbs.indexOf(h.ff ? -h.bb : h.bb) < 0) return false;
     if (filt.from && String(h.timeKey).slice(0, 8) < filt.from) return false;
     if (filt.to && String(h.timeKey).slice(0, 8) > filt.to) return false;
     if (filt.pf && FHOOK.fn && !FHOOK.fn(filt, h, f)) return false;
@@ -1333,7 +1335,7 @@ var Engine = (function () {
     return function (li) { if (F.p[li] < 0) return false; if (posM && !posM[F.pos[li]]) return false; if (potM && !potM[Math.min(F.pfr[li], 3)]) return false;
       if (ip != null) { var v = F.ip[li]; if (v === 0 || (v === 2) !== ip) return false; }
       if (mn && F.np[li] < mn) return false; if (mx && F.np[li] > mx) return false;
-      var i = o ? o[li] : li; if (bb && S.bb[i] !== bb) return false; if (bbM && !bbM[S.bb[i]]) return false; if (siteM && !siteM[S.site[i]]) return false;
+      var i = o ? o[li] : li, sk = (S.flags[i] & 2) ? -S.bb[i] : S.bb[i]; if (bb && sk !== bb) return false; if (bbM && !bbM[sk]) return false; // stake: negativo = mesa rápida (Zoom) if (siteM && !siteM[S.site[i]]) return false;
       if (yr || fr || to) { var d = Math.floor(S.tk[i] / 1e6); if (yr && Math.floor(d / 1e4) !== yr) return false; if (fr && d < fr) return false; if (to && d > to) return false; }
       if (rtp >= 0 && S.rt[i] !== rtp) return false; return true; };
   };
@@ -2166,12 +2168,12 @@ var PackStore = (function () {
   };
   Store.prototype.add = function (h) {
     var i = this.n, P = h.players, A = h.actions; this.ensure(i + 1, this.np + P.length, this.na + A.length);
-    if (!allInts(h)) this.exc.set(i, JSON.stringify({ id: h.id, site: h.site, timeKey: h.timeKey, date: h.date, table: h.table, sb: h.sb, bb: h.bb, button: h.button, board: h.board, pot: h.pot, rake: h.rake, showdown: h.showdown, wn: h.wn != null ? h.wn : (h.warnings ? h.warnings.length : 0), players: h.players, actions: h.actions }));
+    if (!allInts(h)) this.exc.set(i, JSON.stringify({ id: h.id, site: h.site, timeKey: h.timeKey, date: h.date, table: h.table, sb: h.sb, bb: h.bb, button: h.button, board: h.board, pot: h.pot, rake: h.rake, showdown: h.showdown, ff: h.ff ? 1 : 0, wn: h.wn != null ? h.wn : (h.warnings ? h.warnings.length : 0), players: h.players, actions: h.actions }));
     this.tk[i] = h.timeKey;
     if (/^\d{1,15}$/.test(String(h.id))) { this.idn[i] = +h.id; this.idx_s[i] = -1; } else { this.idn[i] = 0; this.idx_s[i] = this.str(h.id); }
     this.site[i] = this.str(h.site); this.date[i] = this.str(h.date); this.table[i] = this.str(h.table);
     this.sb[i] = h.sb; this.bb[i] = h.bb; this.button[i] = h.button; this.pot[i] = h.pot; this.rake[i] = h.rake;
-    this.flags[i] = h.showdown ? 1 : 0; this.wn[i] = Math.min(65535, h.wn != null ? h.wn : (h.warnings ? h.warnings.length : 0));
+    this.flags[i] = (h.showdown ? 1 : 0) | (h.ff ? 2 : 0); this.wn[i] = Math.min(65535, h.wn != null ? h.wn : (h.warnings ? h.warnings.length : 0));
     for (var b = 0; b < 5; b++) this.board[i * 5 + b] = cc(h.board[b]);
     this.pOff[i] = this.np; this.pCnt[i] = P.length;
     for (var k = 0; k < P.length; k++) { var p = P[k], j = this.np++;
@@ -2194,7 +2196,7 @@ var PackStore = (function () {
     var aS = this.aSt, aP = this.aPl, aK = this.aK, aA = this.aAmt, aT = this.aTo, aC = this.aCall, aPo = this.aPot, aL = this.aAll;
     for (var q = 0, m = this.aOff[i], na = this.aCnt[i]; q < na; q++, m++) A.push({ street: aS[m], player: aP[m], kind: KINDS[aK[m]], amount: aA[m], toTotal: aT[m], toCall: aC[m], potBefore: aPo[m], allin: aL[m] === 1 });
     var wn = this.wn[i], h = { id: this.idx_s[i] >= 0 ? strs[this.idx_s[i]] : String(this.idn[i]), site: strs[this.site[i]], timeKey: this.tk[i], date: strs[this.date[i]], table: strs[this.table[i]],
-      sb: this.sb[i], bb: this.bb[i], button: this.button[i], board: board, pot: this.pot[i], rake: this.rake[i], showdown: this.flags[i] === 1, wn: wn, names: names, players: P, actions: A, idx: idx, warnings: wn ? new Array(wn).fill("aviso") : [] };
+      sb: this.sb[i], bb: this.bb[i], button: this.button[i], board: board, pot: this.pot[i], rake: this.rake[i], showdown: (this.flags[i] & 1) === 1, ff: (this.flags[i] & 2) ? 1 : 0, wn: wn, names: names, players: P, actions: A, idx: idx, warnings: wn ? new Array(wn).fill("aviso") : [] };
     this.applyRt(h, i); this.applyAlias(h); return h;
   };
   // alias: el alias apunta al primer jugador del grupo que está en la mano
@@ -4740,7 +4742,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     summary = {}; pl.forEach(function(p){ summary[p.name] = p; }); if (m) meta = m; buildAliasSummaries();
   }
   function compact(h){ // lo que se guarda de cada mano
-    return { id:h.id, site:h.site, timeKey:h.timeKey, date:h.date, table:h.table, sb:h.sb, bb:h.bb, button:h.button, board:h.board, pot:h.pot, rake:h.rake, showdown:h.showdown, wn:h.warnings.length,
+    return { id:h.id, site:h.site, timeKey:h.timeKey, date:h.date, table:h.table, sb:h.sb, bb:h.bb, button:h.button, board:h.board, pot:h.pot, rake:h.rake, showdown:h.showdown, ff:h.ff ? 1 : 0, wn:h.warnings.length,
       names: h.players.map(function(p){ return p.name; }), players:h.players, actions:h.actions };
   }
   function restore(r){ r.idx = {}; r.players.forEach(function(p,i){ r.idx[p.name] = i; }); r.warnings = r.wn ? new Array(r.wn).fill("aviso") : []; return r; }
@@ -4765,13 +4767,23 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   // Base aparte ("tracker-cache"): una foto de las manos ya compactas del jugador (carga en segundos)
   // y los resultados de cada análisis. Si cambian las manos o el programa, se recalcula solo.
   // texto original de los historiales (comprimido), para volver a leer las manos cuando mejora la lectura, sin importar de nuevo
-  var PARSE_VER = "e5d3b30ec5", rawdb = null;
+  var PARSE_VER = "b4bcc270e7", rawdb = null;
   async function openRaw(){ if (rawdb) return rawdb; try { var r = indexedDB.open("tracker-raw" + DBSFX, 1); r.onupgradeneeded = function(){ r.result.createObjectStore("f", {keyPath:"k"}); }; rawdb = await req(r); } catch(e){ rawdb = null; } return rawdb; }
   function h32(t){ var h = 2166136261; for (var i = 0; i < t.length; i += 7){ h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
   async function rawSave(name, text){ try { if (typeof CompressionStream === "undefined") return; var D = await openRaw(); if (!D) return; var k = h32(text) + "|" + text.length;
       var have = await req(D.transaction("f").objectStore("f").getKey(k)); if (have) return;
       var z = await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("deflate-raw"))).blob();
       var tx = D.transaction("f", "readwrite"); tx.objectStore("f").put({k:k, name:name, z:z}); await txDone(tx); } catch(e){ console.warn("raw", e); } }
+  // una sola vez: marca como Zoom (mesa rápida) las manos ya importadas, leyendo los historiales guardados
+  async function ffScan(){ if (!meta.hands || meta.ffScan) return; var D = await openRaw(); if (!D || !idb){ meta.ffScan = 1; return; }
+    var keys = await req(D.transaction("f").objectStore("f").getAllKeys()), RX = /PokerStars Zoom Hand|Snap Poker Hand History|fast ?forward|go fast|speed poker|fast ?fold/i, ids = [];
+    for (var i = 0; i < keys.length; i += 20){ bootSet("Buscando manos Zoom en tus historiales: "+fmtN(Math.min(keys.length, i + 20))+" de "+fmtN(keys.length)+" archivos", 0.03 + 0.03 * i / Math.max(1, keys.length));
+      var os = D.transaction("f").objectStore("f"), recs = await Promise.all(keys.slice(i, i + 20).map(function(k){ return req(os.get(k)); }));
+      for (var j = 0; j < recs.length; j++){ var r = recs[j]; if (!r || !r.z) continue; var txt = await new Response(r.z.stream().pipeThrough(new DecompressionStream("deflate-raw"))).text(); if (!RX.test(txt)) continue;
+        try { Engine.parseText(txt).forEach(function(x){ if (x.status === "ok" && x.hand.ff) ids.push(x.hand.id); }); } catch(e){} } }
+    for (var a = 0; a < ids.length; a += 2000){ var tx = idb.transaction("hands", "readwrite"), hs = tx.objectStore("hands"), part = ids.slice(a, a + 2000);
+      var got = await Promise.all(part.map(function(id){ return req(hs.get(id)); })); got.forEach(function(h){ if (h && !h.ff){ h.ff = 1; hs.put(h); } }); await txDone(tx); }
+    meta.ffScan = 1; try { await saveSummary(); } catch(e){} }
   async function rawCount(){ try { var D = await openRaw(); return D ? await req(D.transaction("f").objectStore("f").count()) : 0; } catch(e){ return 0; } }
   async function reprocessAll(){ var D = await openRaw(); if (!D || importing) return; var keys = await req(D.transaction("f").objectStore("f").getAllKeys()), CH = 20;
     for (var i = 0; i < keys.length; i += CH){ var os = D.transaction("f").objectStore("f"), recs = await Promise.all(keys.slice(i, i + CH).map(function(k){ return req(os.get(k)); })), files = [];
@@ -4779,7 +4791,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       await importFiles(files, {reproc:true, last: i + CH >= keys.length, prog:"Volviendo a leer los historiales guardados: "+fmtN(Math.min(keys.length, i + CH))+" de "+fmtN(keys.length)+" archivos"}); }
     meta.parseV = PARSE_VER; try { await saveSummary(); } catch(e){} var b = $("reprocBar"); if (b) b.hidden = true; }
   async function reprocCheck(){ var b = $("reprocBar"); if (!b) return; var n = meta.parseV && meta.parseV !== PARSE_VER ? await rawCount() : 0; b.hidden = !n; if (n){ b.textContent = "Hay una lectura de historiales mejorada: actualizar mis manos ("+fmtN(n)+" archivos guardados)"; b.onclick = function(){ if (confirm("Se vuelven a leer todas tus manos desde los historiales guardados, con la lectura nueva. Puede tardar varios minutos. ¿Seguimos?")) reprocessAll(); }; } }
-  var cdb = null, SNAP_VER = "00fc6a857b", RES_VER = "1c25bbd66c"; var RES_VERS = {"reports": "a45f4760b6", "strat": "25d4866012", "sheets": "92bbf69020", "ded": "1110a3328b", "lnRes": "32022eba5d", "bbbRes": "7b0cb8d089", "cbfRes": "cd371d624c", "ndRes": "c51407e11d", "ndRes3": "c51407e11d", "sumRes": "9fcd85614f", "digRes": "2b68448454", "pfrRes": "96c948a662", "bhRes": "858c0e97c7", "lsRes": "a1ef035860", "lsResF": "a1ef035860", "pfRes": "69c9ac44f7", "pfResF": "be53e052bd", "aggMemo": "50db848826", "respMemo": "d22b18fcf8", "scRes": "b5e888a1cb", "cache": "91b1544fc2", "lsxd": "dd3487a2a2", "PG_L": "74b95fe2d1", "jgIdxC": "cd4868b781", "grpRes": "a64cc7a7d2"}; function resVer(o){ return RES_VERS[o] || RES_VER; }
+  var cdb = null, SNAP_VER = "196fde5979", RES_VER = "3f669b87b0"; var RES_VERS = {"reports": "5973dae7e7", "strat": "6effd2d5f5", "sheets": "80ae0eab2d", "ded": "72a1b11e21", "lnRes": "e41d0e8bde", "bbbRes": "d0fe51d1c8", "cbfRes": "93ec3d7ac8", "ndRes": "43f0e34e43", "ndRes3": "43f0e34e43", "sumRes": "6e32ecc23b", "digRes": "892ddcf4b8", "pfrRes": "3a9a940756", "bhRes": "864e4f0165", "lsRes": "cd551a246c", "lsResF": "cd551a246c", "pfRes": "b4c76d68db", "pfResF": "cd0b9c6982", "aggMemo": "66ca317e88", "respMemo": "212628ea97", "scRes": "4e7c9c10d4", "cache": "dceada29f0", "lsxd": "d36f3e0c04", "PG_L": "3b07fe6871", "jgIdxC": "21f48d3c19", "grpRes": "20639103d3"}; function resVer(o){ return RES_VERS[o] || RES_VER; }
   async function openCache(){ try{ var r = indexedDB.open("tracker-cache" + DBSFX, 1); r.onupgradeneeded = function(){ r.result.createObjectStore("kv"); }; cdb = await req(r); }catch(e){ cdb = null; } }
   function rtTagNow(){ return (typeof Analysis !== "undefined" ? JSON.stringify(Analysis.RTC) : "") + "#" + (meta && meta.hands ? Math.floor(Math.log(meta.hands) / Math.log(1.1)) : 0); }
   function snapSig(name){ return dataSig(name).split("|").slice(0, -1).join("|"); } // la foto de las manos no depende de los tipos de rival
@@ -5177,10 +5189,10 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     if (f.minPlayers && fc.nPlayers<f.minPlayers) return false;
     if (f.maxPlayers && fc.nPlayers>f.maxPlayers) return false;
     if (f.vs && h.idx[f.vs]==null) return false;
-    if (f.bb && h.bb!==f.bb) return false;
+    if (f.bb && stkOf(h)!==f.bb) return false;
     if (f.year && String(h.timeKey).slice(0,4)!==f.year) return false;
     if (f.rtype && h._rt!==f.rtype) return false;
-    if (f.bbs && f.bbs.indexOf(h.bb) < 0) return false;
+    if (f.bbs && f.bbs.indexOf(stkOf(h)) < 0) return false;
     if (f.from && String(h.timeKey).slice(0,8) < f.from) return false;
     if (f.to && String(h.timeKey).slice(0,8) > f.to) return false;
     if (f.pf && !qfHook(f, h)) return false;
@@ -5255,10 +5267,10 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     attachPicker($("plIn"), function(n){ if (summary[n] && n !== player) setPlayer(n); });
     $("plIn").value = player || ""; var stB = $("plSite"); if (stB){ var bb = SITE_B[siteCode(player)] || SITE_B["888"]; stB.textContent = bb[0]; stB.title = "Sala: " + bb[3]; stB.style.background = bb[1]; stB.style.color = bb[2]; }
     var years = {}, stakes = {}, st = db.store;
-    if (st){ for (var i = 0; i < st.n; i++){ years[String(st.tk[i]).slice(0,4)] = 1; stakes[st.bb[i]] = st.sb[i]; } }
-    else db.hands.forEach(function(h){ years[String(h.timeKey).slice(0,4)]=1; stakes[h.bb]=h.sb; });
+    if (st){ for (var i = 0; i < st.n; i++){ years[String(st.tk[i]).slice(0,4)] = 1; stakes[stkOfS(st, i)] = st.sb[i]; } }
+    else db.hands.forEach(function(h){ years[String(h.timeKey).slice(0,4)]=1; stakes[stkOf(h)]=h.sb; });
     $("fYear").innerHTML = '<option value="">Todos</option>'+Object.keys(years).sort().map(function(y){ return '<option>'+y+'</option>'; }).join("");
-    $("fStake").innerHTML = '<option value="">Todos</option>'+Object.keys(stakes).sort(function(a,b){return a-b;}).map(function(b){ return '<option value="'+b+'">NL'+b+' ($'+(stakes[b]/100).toFixed(2)+'/$'+(b/100).toFixed(2)+')</option>'; }).join("");
+    $("fStake").innerHTML = '<option value="">Todos</option>'+Object.keys(stakes).sort(stkCmp).map(function(b){ return '<option value="'+b+'">'+stkLbl(b)+' ($'+(stakes[b]/100).toFixed(2)+'/$'+(Math.abs(b)/100).toFixed(2)+')</option>'; }).join("");
     fillRivals(); syncFilterUi();
   }
   function fillRivals(){
@@ -5381,9 +5393,9 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     var a = agg(), ev = evInfo(), evbb = ev.hands ? ev.ev[ev.ev.length-1]/ev.hands*100 : 0;
     var kpi = '<div class="kv"><span class="h">Manos</span><b>'+fmtN(a.hands)+'</b><span class="h">Ganancia</span><b class="'+cls(a.net)+'">'+money(a.net)+'</b><span class="h">bb/100</span><b class="'+cls(a.bb100)+'">'+f1(a.bb100,2)+'</b><span class="h">All-in adj bb/100</span><b class="'+cls(evbb)+'">'+f1(evbb,2)+'</b>'
       + '<span class="h">Factor de agresión</span><b>'+f1(a.af(),2)+'</b><span class="h">Agresión %</span><b>'+f1(a.afq(),1)+'%</b><span class="h">Gana habiendo visto flop</span><b>'+pc(a.c.wwsf)+'</b><span class="h">Va al showdown</span><b>'+pc(a.c.wtsd)+'</b><span class="h">Gana en showdown</span><b>'+pc(a.c.wsd)+'</b></div>';
-    var stakes = {}, st0 = db.store; if (st0 && db.F && db.F.who===player){ for (var si = 0; si < st0.n; si++){ if (db.F.p[si] < 0) continue; stakes[st0.bb[st0.order ? st0.order[si] : si]] = 1; } } else db.hands.forEach(function(h){ if (h.idx[player]!=null) stakes[h.bb]=1; }); var sk = Object.keys(stakes);
-    sk.sort(function(x, y){ return x - y; }); var skAll = sk.slice(); if (resStk) sk = sk.filter(function(b){ return resStk.indexOf(+b) >= 0; });
-    var rows = skAll.length>1 ? sk.map(function(b){ var x = agg(withF({bb:+b})); return {label:"NL"+b+" ("+fmtN(x.hands)+")", v:x.bb100, txt:f1(x.bb100)}; }) : POS.map(function(p){ var x = agg(withF({positions:[p]})); return {label:p+" ("+fmtN(x.hands)+")", v:x.bb100, txt:f1(x.bb100)}; });
+    var stakes = {}, st0 = db.store; if (st0 && db.F && db.F.who===player){ for (var si = 0; si < st0.n; si++){ if (db.F.p[si] < 0) continue; stakes[stkOfS(st0, st0.order ? st0.order[si] : si)] = 1; } } else db.hands.forEach(function(h){ if (h.idx[player]!=null) stakes[stkOf(h)]=1; }); var sk = Object.keys(stakes);
+    sk.sort(stkCmp); var skAll = sk.slice(); if (resStk) sk = sk.filter(function(b){ return resStk.indexOf(+b) >= 0; });
+    var rows = skAll.length>1 ? sk.map(function(b){ var x = agg(withF({bb:+b})); return {label:stkLbl(b)+" ("+fmtN(x.hands)+")", v:x.bb100, txt:f1(x.bb100)}; }) : POS.map(function(p){ var x = agg(withF({positions:[p]})); return {label:p+" ("+fmtN(x.hands)+")", v:x.bb100, txt:f1(x.bb100)}; });
     var top = '<div style="display:grid;grid-template-columns:minmax(250px,1fr) minmax(0,2fr) minmax(250px,1.2fr);gap:10px;min-height:0">'
       + '<section class="box"><h2>'+esc(player)+'</h2><div class="bd">'+kpi+scCard()+'</div></section>'
       + '<section class="box"><h2>Winrate '+(skAll.length>1?"por stake":"por posición")+' <span style="display:flex;gap:8px;align-items:center"><span class="small">bb/100</span>'+(skAll.length>1?'<button type="button" class="qf-dd'+(resStk?' on':'')+'" id="resStkB" style="padding:3px 10px;font-size:12px">'+(resStk ? resStk.length+' de '+skAll.length+' stakes' : 'Todos los stakes ('+skAll.length+')')+' ▾</button>':'')+'</span></h2><div class="bd" style="display:flex;align-items:center;overflow:hidden">'+hbars(rows,{label:"Winrate", axis:"bb/100"})+'</div></section>'
@@ -5525,7 +5537,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     ["pot","Bote ($)", function(h){ return h.pot; }, function(h){ return money(h.pot); }],
     ["potbb","Bote (bb)", function(h){ return h.pot/h.bb; }, function(h){ return f1(h.pot/h.bb, 1); }],
     ["nj","Jugadores", function(h){ return h.players.length; }, function(h){ return h.players.length; }],
-    ["stake","Stake", function(h){ return h.bb; }, function(h){ return 'NL'+h.bb; }],
+    ["stake","Stake", function(h){ return Math.abs(stkOf(h)) * 2 + (h.ff ? 1 : 0); }, function(h){ return stkLbl(stkOf(h)); }],
     ["mesa","Mesa", function(h){ return h.table; }, function(h){ return esc(h.table); }, 1]
   ];
   var HCOLS_DEF = ["sala","hora","cartas","pos","linea","flop","turn","river","stack","net"];
@@ -5710,7 +5722,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
       case "pos": return [String(PF6.indexOf(f.pos)), f.pos];
       case "posfr": var fp = frPos(h, p), O = ["UTG","UTG+1","UTG+2","UTG+3","MP","HJ","CO","BTN","BTN/SB","SB","BB"]; return [String(100+O.indexOf(fp)), fp];
       case "sala": return ["888", "888poker"];
-      case "stake": return [String(1e6 + h.bb), "NL"+fmtN(h.bb)];
+      case "stake": return [String(1e7 + 2 * h.bb + (h.ff ? 1 : 0)), stkLbl(stkOf(h))];
       case "mesa": var n = h.players.length; return [String(100+n), n+" jugadores"];
       case "bote": var nr = h.actions.filter(function(a){ return a.street === 0 && a.kind === "R"; }).length; return [String(Math.min(3, nr)), ["Limpeado","Simple (1 raise)","3bet","4bet o más"][Math.min(3, nr)]];
       case "rival": var rt = h._rt || "none"; return [rt, {rec:"Recreacionales", reg:"Regulares", int:"Intermedios", unk:"Desconocidos", none:"Sin rival claro"}[rt] || rt];
@@ -5861,16 +5873,16 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     var St = db.store, F = db.F, fast = isFast() && St && F, POSS = ["EP","MP","CO","BTN","SB","BB"], G = {};
     for (var k = 0; k < e.hi.length; k++){ var li = e.hi[k], key, nb = e.real[k] - (k ? e.real[k-1] : 0), eb = e.ev[k] - (k ? e.ev[k-1] : 0), nm = e.m.real[k] - (k ? e.m.real[k-1] : 0), em = e.m.ev[k] - (k ? e.m.ev[k-1] : 0);
       if (fast){ var r = St.order ? St.order[li] : li;
-        if (gGrp === "site") key = St.strs[St.site[r]] || "888"; else if (gGrp === "stake") key = String(St.bb[r]); else if (gGrp === "year") key = String(St.tk[r]).slice(0, 4);
+        if (gGrp === "site") key = St.strs[St.site[r]] || "888"; else if (gGrp === "stake") key = String(stkOfS(St, r)); else if (gGrp === "year") key = String(St.tk[r]).slice(0, 4);
         else if (gGrp === "mesa"){ var np = St.pCnt[r]; key = np >= 7 ? "fr" : np >= 3 ? "sh" : "hu"; } else if (gGrp === "hora") key = hrBand(St.strs[St.site[r]] || "888", St.tk[r]); else key = POSS[F.pos[li]] || "EP"; }
       else { var h = db.hands[li], P = h.idx[player];
-        if (gGrp === "site") key = h.site || "888"; else if (gGrp === "stake") key = String(h.bb); else if (gGrp === "year") key = String(h.timeKey).slice(0, 4); else if (gGrp === "mesa"){ var np2 = h.players.length; key = np2 >= 7 ? "fr" : np2 >= 3 ? "sh" : "hu"; } else if (gGrp === "hora") key = hrBand(h.site || "888", h.timeKey); else key = h.players[P].pos; }
+        if (gGrp === "site") key = h.site || "888"; else if (gGrp === "stake") key = String(stkOf(h)); else if (gGrp === "year") key = String(h.timeKey).slice(0, 4); else if (gGrp === "mesa"){ var np2 = h.players.length; key = np2 >= 7 ? "fr" : np2 >= 3 ? "sh" : "hu"; } else if (gGrp === "hora") key = hrBand(h.site || "888", h.timeKey); else key = h.players[P].pos; }
       var g = G[key] || (G[key] = {key:key, n:0, r:0, e:0, rm:0, em:0, R:[], E:[], Rm:[], Em:[]}); g.n++; g.r += nb; g.e += eb; g.rm += nm; g.em += em; g.R.push(g.r); g.E.push(g.e); g.Rm.push(g.rm); g.Em.push(g.em); }
     if (gGrp === "hora") hrCfg().b.forEach(function(b, i){ var kk = "b"+i; if (!G[kk]) G[kk] = {key:kk, n:0, r:0, e:0, rm:0, em:0, R:[], E:[], Rm:[], Em:[]}; }); // las franjas sin manos también se ven (para poder cambiarlas)
     var ORD = {mesa:["fr","sh","hu"], pos:POSS}, L = Object.keys(G).map(function(x){ return G[x]; });
-    if (gGrp === "year") L.sort(function(a, b){ return a.key < b.key ? -1 : 1; }); else if (gGrp === "stake") L.sort(function(a, b){ return +a.key - +b.key; }); else if (gGrp === "hora") L.sort(function(a, b){ return (a.key === "x" ? 999 : +a.key.slice(1)) - (b.key === "x" ? 999 : +b.key.slice(1)); }); else if (ORD[gGrp]) L.sort(function(a, b){ return ORD[gGrp].indexOf(a.key) - ORD[gGrp].indexOf(b.key); }); else L.sort(function(a, b){ return b.n - a.n; });
+    if (gGrp === "year") L.sort(function(a, b){ return a.key < b.key ? -1 : 1; }); else if (gGrp === "stake") L.sort(function(a, b){ return stkCmp(a.key, b.key); }); else if (gGrp === "hora") L.sort(function(a, b){ return (a.key === "x" ? 999 : +a.key.slice(1)) - (b.key === "x" ? 999 : +b.key.slice(1)); }); else if (ORD[gGrp]) L.sort(function(a, b){ return ORD[gGrp].indexOf(a.key) - ORD[gGrp].indexOf(b.key); }); else L.sort(function(a, b){ return b.n - a.n; });
     if (gGrp === "hora" && hrCfg().noX) L = L.filter(function(g){ return g.key !== "x"; }); L.forEach(function(g, i){ g.col = G_COL[i % G_COL.length]; }); cache[k0] = L; return L; }
-  function grafGName(key){ if (gGrp === "hora"){ if (key === "x") return "Fuera de las franjas"; var b = hrCfg().b[+key.slice(1)]; return b ? "De "+hrLbl(b[0])+" a "+hrLbl(b[1]) : key; } if (gGrp === "stake") return "NL"+key; if (gGrp === "site") return (SITE_B[key] || SITE_B["888"])[3]; if (gGrp === "mesa") return {fr:"Full ring (7 o más jugadores)", sh:"Short handed (3 a 6 jugadores)", hu:"Heads-up (2 jugadores)"}[key]; return key; }
+  function grafGName(key){ if (gGrp === "hora"){ if (key === "x") return "Fuera de las franjas"; var b = hrCfg().b[+key.slice(1)]; return b ? "De "+hrLbl(b[0])+" a "+hrLbl(b[1]) : key; } if (gGrp === "stake") return stkLbl(key); if (gGrp === "site") return (SITE_B[key] || SITE_B["888"])[3]; if (gGrp === "mesa") return {fr:"Full ring (7 o más jugadores)", sh:"Short handed (3 a 6 jugadores)", hu:"Heads-up (2 jugadores)"}[key]; return key; }
   function vGrafG(){
     var L = grafGroups(), off = gGoff[gGrp] || {}, M = gUnit === "m", series = [], showEv = !!gtog.ev;
     L.forEach(function(g){ if (off[g.key]) return; series.push({data:M ? g.Rm : g.R, color:g.col, w:2}); if (showEv) series.push({data:M ? g.Em : g.E, color:g.col, w:1.2, dash:1}); });
@@ -7053,7 +7065,12 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   function ymdIn(s){ return s ? s.slice(0,4)+"-"+s.slice(4,6)+"-"+s.slice(6,8) : ""; }
   function qfSites(){ var k = "qfsi"+player; if (cache[k]) return cache[k]; var S = {}; if (isFast()){ var F = db.F, St = db.store, o = St.order; for (var li = 0; li < db.hands.length; li++) if (F.p[li] >= 0){ var c = St.strs[St.site[o ? o[li] : li]] || "888"; S[c] = (S[c]||0) + 1; } } else db.hands.forEach(function(h){ var c = h.site || "888"; S[c] = (S[c]||0) + 1; });
     cache[k] = Object.keys(S).sort(function(a, b){ return S[b] - S[a]; }); cache[k+"n"] = S; return cache[k]; }
-  function qfStakes(){ var k = "qfst"+player; if (cache[k]) return cache[k]; var S = {}; if (isFast()){ var F = db.F, St = db.store, o = St.order; for (var li = 0; li < db.hands.length; li++) if (F.p[li] >= 0){ var b = St.bb[o ? o[li] : li]; S[b] = (S[b]||0) + 1; } } else db.hands.forEach(function(h){ if (h.idx[player] != null) S[h.bb] = (S[h.bb]||0) + 1; }); return (cache[k] = Object.keys(S).map(Number).sort(function(a,b){ return a-b; })); }
+  // stake: NL100 y NL100 Zoom (mesas rápidas de cualquier sala) son stakes distintos; en los filtros la Zoom va con signo negativo
+  function stkOf(h){ return h.ff ? -h.bb : h.bb; }
+  function stkOfS(St, i){ return (St.flags[i] & 2) ? -St.bb[i] : St.bb[i]; }
+  function stkLbl(b){ b = +b; return "NL" + fmtN(Math.abs(b)) + (b < 0 ? " Zoom" : ""); }
+  function stkCmp(a, b){ a = +a; b = +b; return Math.abs(a) - Math.abs(b) || (a < 0) - (b < 0); }
+  function qfStakes(){ var k = "qfst"+player; if (cache[k]) return cache[k]; var S = {}; if (isFast()){ var F = db.F, St = db.store, o = St.order; for (var li = 0; li < db.hands.length; li++) if (F.p[li] >= 0){ var b = stkOfS(St, o ? o[li] : li); S[b] = (S[b]||0) + 1; } } else db.hands.forEach(function(h){ if (h.idx[player] != null){ var b2 = stkOf(h); S[b2] = (S[b2]||0) + 1; } }); return (cache[k] = Object.keys(S).map(Number).sort(stkCmp)); }
   function qfApply(){ ["fPos","fStake","fYear"].forEach(function(){}); syncFilterUi(); renderAll(); }
   function qfBar(){ if (!player || !db || !db.hands.length) return '';
     var ST = qfStakes(), sel = filt.bbs || [], P = filt.positions || [], today = ymd(new Date()), Q = filt._q || "all";
@@ -7062,7 +7079,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
     var dd = function(id, lab, val){ return '<div class="qf-f"><span class="qf-l">'+lab+'</span><button type="button" class="qf-dd" data-qfdd="'+id+'">'+esc(val)+' <span style="opacity:.6">▾</span></button></div>'; };
     var quick = [["today","Hoy"],["month","Este mes"],["year","Este año"],["all","Todo"]].map(function(x){ return '<button type="button" class="qf-q'+(Q===x[0]?' on':'')+'" data-qfq="'+x[0]+'">'+x[1]+'</button>'; }).join("");
     return '<div class="qf-bar">'
-      + dd("st", "Stakes", sel.length ? sel.map(function(b){ return "NL"+b; }).join(", ") : "Todos ("+ST.length+")")
+      + dd("st", "Stakes", sel.length ? sel.map(stkLbl).join(", ") : "Todos ("+ST.length+")")
       + dd("pos", "Posición", P.length ? P.join(", ") : "Todas")
       + (qfSites().length ? dd("site", "Sala", filt.sites ? filt.sites.map(function(c){ return (SITE_B[c] || SITE_B["888"])[3]; }).join(", ") : "Todas ("+qfSites().length+")") : "")
       + '<div class="qf-f"><span class="qf-l">Desde</span><input type="date" class="cfin qf-d" id="qfFrom" value="'+ymdIn(filt.from)+'"></div>'
@@ -7081,7 +7098,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   document.addEventListener("click", function(e){ var b = e.target.closest && e.target.closest("[data-qfdd]"); if (!b) return; e.stopPropagation(); var old = $("gboxMenu"); if (old) old.remove(); var id = b.dataset.qfdd;
     var m = document.createElement("div"); m.id = "gboxMenu"; m.className = "gbox-menu"; m._r = b.getBoundingClientRect(); m.style.width = "220px";
     var SN = cache["qfsi"+player+"n"] || {};
-    var L = id === "st" ? qfStakes().map(function(x){ return [x, "NL"+x]; }) : id === "site" ? qfSites().map(function(x){ return [x, (SITE_B[x] || SITE_B["888"])[3] + " · " + fmtN(SN[x] || 0) + " manos"]; }) : QPOS.map(function(x){ return [x, x]; }), cur = id === "st" ? (filt.bbs || []) : id === "site" ? (filt.sites || []) : (filt.positions || []);
+    var L = id === "st" ? qfStakes().map(function(x){ return [x, stkLbl(x)]; }) : id === "site" ? qfSites().map(function(x){ return [x, (SITE_B[x] || SITE_B["888"])[3] + " · " + fmtN(SN[x] || 0) + " manos"]; }) : QPOS.map(function(x){ return [x, x]; }), cur = id === "st" ? (filt.bbs || []) : id === "site" ? (filt.sites || []) : (filt.positions || []);
     m.innerHTML = '<div class="gbm-h"><b>'+(id==="st"?'Stakes':id==="site"?'Sala':'Posición')+'</b><button class="gbm-x" id="gbX" title="Cerrar">✕</button></div><div style="display:flex;gap:10px;margin:2px 0 6px"><button class="link" data-qfall="1" style="padding:0">Tildar todas</button><button class="link" data-qfall="0" style="padding:0">Destildar todas</button></div>'
       + (L.length > 8 ? '<input class="cfin" placeholder="buscar…" style="width:100%;margin-bottom:6px" oninput="var q=this.value.toLowerCase();this.parentElement.querySelectorAll(\'label.gl\').forEach(function(l){l.style.display=l.textContent.toLowerCase().indexOf(q)>=0?\'\':\'none\';});">' : '')
       + L.map(function(x){ var ck = '<input type="checkbox" data-qfv="'+x[0]+'"'+(cur.indexOf(x[0]) >= 0 || cur.indexOf(String(x[0])) >= 0 ? ' checked' : '')+'>';
@@ -11317,7 +11334,7 @@ window.FN_RANGES = {"presets":{"rfi":[{"label":"EP","range":"AA, KK, QQ, JJ, TT,
   (async function(){
     try {
     bootSet("Abriendo la base de datos…", 0.02);
-    await openIdb(); await openCache(); try{ await loadSummary(); }catch(e){} try { await lsaLoad(); } catch(e){} $("prepBtn").addEventListener("click", prepAll);
+    await openIdb(); await openCache(); try{ await loadSummary(); }catch(e){} try { await ffScan(); } catch(e){ console.error(e); } try { await lsaLoad(); } catch(e){} $("prepBtn").addEventListener("click", prepAll);
     if (meta.hands){ var pl = playersList(), saved = load("player" + DBSFX, null), first = saved && summary[saved] ? saved : (pl.length ? pl[0][0] : null);
       if (MYV[view] && CFG.hero && summary[CFG.hero]) first = CFG.hero;
       bootSet("Cargando las manos de "+(first || "")+"…", 0.06); await focus(first);
